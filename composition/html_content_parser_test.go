@@ -609,7 +609,7 @@ func Test_HtmlContentParser_parseFragment(t *testing.T) {
     </uic-fragment><testend>`))
 
 	z.Next() // At <uic-fragment name ..
-	f, _, err := parseFragment(z)
+	f, _, err := parseFragment(z, "")
 	a.NoError(err)
 
 	expected := `Bli Bla blub

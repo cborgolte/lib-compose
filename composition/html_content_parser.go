@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/html"
 	"io"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/net/html"
 )
 
 const (
@@ -95,6 +96,7 @@ forloop:
 	if len(st) > 0 || len(stylesheets) > 0 {
 		frg := NewStringFragment(st)
 		frg.AddStylesheets(stylesheets)
+		frg.SetName(c.Name() + "._head")
 		c.head = frg
 	}
 	return nil
@@ -136,7 +138,13 @@ forloop:
 				continue
 			}
 			if string(tag) == UicFragment {
-				if f, deps, err := parseFragment(z); err != nil {
+				fragmentName := getFragmentName(attrs)
+				if fragmentName == "" {
+					fragmentName = c.Name() + "._default"
+				} else {
+					fragmentName = c.Name() + "." + fragmentName
+				}
+				if f, deps, err := parseFragment(z, fragmentName); err != nil {
 					return err
 				} else {
 					c.body[getFragmentName(attrs)] = f
@@ -147,7 +155,7 @@ forloop:
 				continue
 			}
 			if string(tag) == UicTail {
-				if f, deps, err := parseFragment(z); err != nil {
+				if f, deps, err := parseFragment(z, c.Name()+"._tail"); err != nil {
 					return err
 				} else {
 					c.tail = f
@@ -195,6 +203,7 @@ forloop:
 		if st := strings.Trim(s, " \n"); len(st) > 0 || len(stylesheets) > 0 {
 			frg := NewStringFragment(st)
 			frg.AddStylesheets(stylesheets)
+			frg.SetName(c.Name() + "._default")
 			c.body[""] = frg
 		}
 	}
@@ -202,7 +211,7 @@ forloop:
 	return nil
 }
 
-func parseFragment(z *html.Tokenizer) (f Fragment, dependencies map[string]Params, err error) {
+func parseFragment(z *html.Tokenizer, name string) (f Fragment, dependencies map[string]Params, err error) {
 	var stylesheets []string
 	attrs := make([]html.Attribute, 0, 10)
 	dependencies = make(map[string]Params)
@@ -254,6 +263,7 @@ forloop:
 
 	frg := NewStringFragment(buff.String())
 	frg.AddStylesheets(stylesheets)
+	frg.SetName(name)
 	return frg, dependencies, nil
 }
 

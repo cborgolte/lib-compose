@@ -79,9 +79,10 @@ forloop:
 				}
 				continue
 			}
-			if href, isStylesheed := getStylesheet(tag, attrs); isStylesheed {
+			if href, isStylesheet := getStylesheet(tag, attrs); isStylesheet {
 				stylesheets = append(stylesheets, href)
-				continue
+				fmt.Println("XXXX Stylesheets: ", stylesheets)
+				// continue
 			}
 		case tt == html.EndTagToken:
 			if string(tag) == "head" {
@@ -97,6 +98,8 @@ forloop:
 		frg := NewStringFragment(st)
 		frg.AddStylesheets(stylesheets)
 		frg.SetName(c.Name() + "._head")
+		fmt.Println("YYYYY frg.Stylesheets: ", frg.Stylesheets())
+		fmt.Printf("ZZZZ Fragment '%s': @%p\n", frg.Name(), frg)
 		c.head = frg
 	}
 	return nil
@@ -185,7 +188,7 @@ forloop:
 					continue
 				}
 			}
-			if href, isStylesheed := getStylesheet(tag, attrs); isStylesheed {
+			if href, isStylesheet := getStylesheet(tag, attrs); isStylesheet {
 				stylesheets = append(stylesheets, href)
 				continue
 			}
@@ -248,7 +251,7 @@ forloop:
 				continue
 			}
 
-			if href, isStylesheed := getStylesheet(tag, attrs); isStylesheed {
+			if href, isStylesheet := getStylesheet(tag, attrs); isStylesheet {
 				stylesheets = append(stylesheets, href)
 				continue
 			}

@@ -3,9 +3,10 @@ package composition
 import (
 	"bytes"
 	"errors"
-	"io"
-	"strings"
 	"fmt"
+	"io"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -87,7 +88,15 @@ func (cntx *ContentMerge) GetHtml() ([]byte, error) {
 	header := bytes.NewBuffer(make([]byte, 0, DefaultBufferSize))
 	io.WriteString(header, "<!DOCTYPE html>\n<html>\n  <head>\n    ")
 
-	for _, f := range cntx.Head {
+	io.WriteString(header, "<!--- Head len: \n")
+	io.WriteString(header, strconv.Itoa(len(cntx.Head)))
+	io.WriteString(header, "\n --> \n")
+
+	for i, f := range cntx.Head {
+		fmt.Printf("UUUU render Fragment '%s': @%p Stylesheets: %#v\n", f.Name(), f, f.Stylesheets())
+		io.WriteString(header, "<!--- Head: "+strconv.Itoa(i)+" : "+f.Name()+"\n")
+		io.WriteString(header, strings.Join(f.Stylesheets(), "\n"))
+		io.WriteString(header, "\n --> \n")
 		cntx.collectStylesheets(f)
 		executeFragment := generateExecutionFunction(cntx, header)
 		if err := f.Execute(header, cntx.MetaJSON, executeFragment); err != nil {
@@ -168,6 +177,7 @@ func (cntx *ContentMerge) AddContent(c Content, priority int) {
 
 func (cntx *ContentMerge) addHead(f Fragment) {
 	if f != nil {
+		fmt.Printf("UUUU AddHead '%s': @%p Stylesheets: %#v\n", f.Name(), f, f.Stylesheets())
 		cntx.Head = append(cntx.Head, f)
 	}
 }

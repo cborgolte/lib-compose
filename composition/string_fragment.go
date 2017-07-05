@@ -8,14 +8,14 @@ import (
 
 // StringFragment is a simple template based representation of a fragment.
 type StringFragment struct {
-	content     string
-	stylesheets [][]html.Attribute
+	content  string
+	linkTags [][]html.Attribute
 }
 
 func NewStringFragment(c string) *StringFragment {
 	return &StringFragment{
-		content:     c,
-		stylesheets: nil,
+		content:  c,
+		linkTags: nil,
 	}
 }
 
@@ -27,12 +27,12 @@ func (f *StringFragment) SetContent(content string) {
 	f.content = content
 }
 
-func (f *StringFragment) Stylesheets() [][]html.Attribute {
-	return f.stylesheets
+func (f *StringFragment) LinkTags() [][]html.Attribute {
+	return f.linkTags
 }
 
-func (f *StringFragment) AddStylesheets(stylesheets [][]html.Attribute) {
-	f.stylesheets = append(f.stylesheets, stylesheets...)
+func (f *StringFragment) AddLinkTags(linkTags [][]html.Attribute) {
+	f.linkTags = append(f.linkTags, linkTags...)
 }
 
 func (f *StringFragment) Execute(w io.Writer, data map[string]interface{}, executeNestedFragment func(nestedFragmentName string) error) error {

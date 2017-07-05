@@ -298,8 +298,7 @@ func Test_HtmlContentParser_parseHead_withMultipleMetaTags_and_Titles_and_Canoni
 	c := NewMemoryContent()
 	err := parser.parseHead(z, c)
 	a.NoError(err)
-
-        containsFragment(t, "<title>navigationservice</title>", c.Head())
+	containsFragment(t, "<title>navigationservice</title>", c.Head())
 }
 
 func Test_HtmlContentParser_parseHead(t *testing.T) {
@@ -350,6 +349,7 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 	<!-- will be found by the HeaderParser -->
 	<link rel="stylesheet" href="/navigationservice/stylesheets/main-93174ed18d.css">
 	<link rel="stylesheet" href="/navigationservice/stylesheets/main-93174ed18d.css">
+	<link rel="canonical" href="/baumarkt/bauen-renovieren/suche">
 	<link rel="stylesheet" href="/navigationservice/stylesheets/main-03174ed18d.css">
 </head>
 <body>
@@ -367,10 +367,20 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 	c := NewMemoryContent()
 	err := parser.Parse(c, z)
 	a.NoError(err)
+	// all head link elements were found
+	a.Equal("rel=\"stylesheet\" href=\"/navigationservice/stylesheets/main-93174ed18d.css\"",
+		joinAttrs(c.Head().LinkTags()[0]))
+	a.Equal("rel=\"stylesheet\" href=\"/navigationservice/stylesheets/main-93174ed18d.css\"",
+		joinAttrs(c.Head().LinkTags()[1]))
+	a.Equal("rel=\"canonical\" href=\"/baumarkt/bauen-renovieren/suche\"",
+		joinAttrs(c.Head().LinkTags()[2]))
+	a.Equal("rel=\"stylesheet\" href=\"/navigationservice/stylesheets/main-03174ed18d.css\"",
+		joinAttrs(c.Head().LinkTags()[3]))
+	// all body-fragment link elements were found
 	a.Equal("rel=\"stylesheet\" href=\"/basketservice/stylesheets/main-93174ed18d.css\"",
-		joinAttrs(c.Body()["content"].Stylesheets()[0]))
+		joinAttrs(c.Body()["content"].LinkTags()[0]))
 	a.Equal("rel=\"stylesheet\" href=\"/productservice/stylesheets/main-93174ed18d.css\"",
-		joinAttrs(c.Body()[""].Stylesheets()[0]))
+		joinAttrs(c.Body()[""].LinkTags()[0]))
 }
 
 func Test_HtmlContentParser_collectStylesheets_OverrideDefault(t *testing.T) {
@@ -404,9 +414,9 @@ func Test_HtmlContentParser_collectStylesheets_OverrideDefault(t *testing.T) {
 	a.NoError(err)
 	a.Equal(
 		"rel=\"stylesheet\" href=\"/basketservice/stylesheets/main-93174ed18d.css\"",
-		joinAttrs(c.Body()["content"].Stylesheets()[0]))
+		joinAttrs(c.Body()["content"].LinkTags()[0]))
 	a.Equal("rel=\"stylesheet\" href=\"/override/stylesheets/main-93174ed18d.css\"",
-		joinAttrs(c.Body()[""].Stylesheets()[0]))
+		joinAttrs(c.Body()[""].LinkTags()[0]))
 }
 
 func Test_HtmlContentParser_parseBody(t *testing.T) {
@@ -610,8 +620,8 @@ func Test_HtmlContentParser_parseFragment(t *testing.T) {
 	z.Next()
 	endTag, _ := z.TagName()
 	a.Equal("testend", string(endTag))
-	a.Equal(`rel="stylesheet" href="/navigationservice/stylesheets/main-93174ed18d.css"`, joinAttrs(f.Stylesheets()[0]))
-	a.Equal(1, len(f.Stylesheets()))
+	a.Equal(`rel="stylesheet" href="/navigationservice/stylesheets/main-93174ed18d.css"`, joinAttrs(f.LinkTags()[0]))
+	a.Equal(1, len(f.LinkTags()))
 }
 
 // Regression test: to ensure, that escaped entities in attributes do not lead to a problem.
@@ -745,7 +755,6 @@ func containsFragment(t *testing.T, contained string, f Fragment) {
 		t.Error("Fragment is not equal: \nexpected: ", contained, "\nactual:  ", sf)
 	}
 }
-
 
 func Test_ParseHeadFragment_Filter_Title(t *testing.T) {
 	a := assert.New(t)
@@ -942,7 +951,7 @@ func Test_ParseHeadFragment_Filter_Meta_Tag(t *testing.T) {
 func Test_ParseHeadFragment_Filter_Link_Canonical_Tag(t *testing.T) {
 	a := assert.New(t)
 
-        // GIVEN
+	// GIVEN
 	originalHeadString := `<meta charset="utf-8">
 
 	<link rel="canonical" href="/navigationservice">
@@ -1011,10 +1020,10 @@ func Test_ParseHeadFragment_Filter_Link_Canonical_Tag(t *testing.T) {
 	headMetaPropertyMap["canonical"] = "/baumarkt/suche"
 
 	headFragment := NewStringFragment(originalHeadString)
-        // WHEN
+	// WHEN
 	ParseHeadFragment(headFragment, headMetaPropertyMap)
 
-        // THEN
+	// THEN
 	expectedParsedHead = removeTabsAndNewLines(expectedParsedHead)
 	resultString := removeTabsAndNewLines(headFragment.Content())
 
@@ -1022,7 +1031,7 @@ func Test_ParseHeadFragment_Filter_Link_Canonical_Tag(t *testing.T) {
 }
 
 func Test_ParseHeadFragment_Filter_Link_Canonical_Tag_without_existing_Map(t *testing.T) {
-        // GIVEN
+	// GIVEN
 	a := assert.New(t)
 
 	originalHeadString := `
@@ -1049,10 +1058,10 @@ func Test_ParseHeadFragment_Filter_Link_Canonical_Tag_without_existing_Map(t *te
 	headMetaPropertyMap := make(map[string]string)
 
 	headFragment := NewStringFragment(originalHeadString)
-        // WHEN
+	// WHEN
 	ParseHeadFragment(headFragment, headMetaPropertyMap)
 
-        // THEN
+	// THEN
 	expectedParsedHead = removeTabsAndNewLines(expectedParsedHead)
 	resultString := removeTabsAndNewLines(headFragment.Content())
 

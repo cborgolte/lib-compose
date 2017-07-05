@@ -37,11 +37,11 @@ type ContentMerge struct {
 	// no entry means priority == 0
 	priorities map[Content]int
 
-	// all stylesheets contained in used fragments
-	stylesheets [][]html.Attribute
+	// all linkTags contained in used fragments
+	linkTags [][]html.Attribute
 
 	// strategy to prevent duplicacte <link rel="stylesheet"> tags
-	stylesheetDeduplicationStrategy StylesheetDeduplicationStrategy
+	linkTagDeduplicationStrategy DeduplicationStrategy
 }
 
 // NewContentMerge creates a new buffered ContentMerge
@@ -58,26 +58,26 @@ func NewContentMerge(metaJSON map[string]interface{}) *ContentMerge {
 	return cntx
 }
 
-func (cntx *ContentMerge) SetDeduplicationStrategy(strategy StylesheetDeduplicationStrategy) {
-	cntx.stylesheetDeduplicationStrategy = strategy
+func (cntx *ContentMerge) SetDeduplicationStrategy(strategy DeduplicationStrategy) {
+	cntx.linkTagDeduplicationStrategy = strategy
 }
 
 func (cntx *ContentMerge) collectStylesheets(f Fragment) {
-	cntx.stylesheets = append(cntx.stylesheets, f.Stylesheets()...)
+	cntx.linkTags = append(cntx.linkTags, f.LinkTags()...)
 }
 
 func (cntx *ContentMerge) deduplicateStylesheets() {
-	if cntx.stylesheetDeduplicationStrategy != nil {
-		cntx.stylesheets = cntx.stylesheetDeduplicationStrategy.Deduplicate(cntx.stylesheets)
+	if cntx.linkTagDeduplicationStrategy != nil {
+		cntx.linkTags = cntx.linkTagDeduplicationStrategy.Deduplicate(cntx.linkTags)
 	}
 }
 
 func (cntx *ContentMerge) writeStylesheets(w io.Writer) {
 
-	// first make sure, stylesheets are deduplicated
+	// first make sure, linkTags are deduplicated
 	cntx.deduplicateStylesheets()
 
-	for _, attrs := range cntx.stylesheets {
+	for _, attrs := range cntx.linkTags {
 		joinedAttr := joinAttrs(attrs)
 		stylesheet := fmt.Sprintf("\n    <link %s>", joinedAttr)
 		io.WriteString(w, stylesheet)
@@ -147,7 +147,7 @@ func (cntx *ContentMerge) GetHtml() ([]byte, error) {
 	}
 	io.WriteString(body, "\n  </body>\n</html>\n")
 
-	// write the collected stylesheets to the header and close it
+	// write the collected linkTags to the header and close it
 	cntx.writeStylesheets(header)
 	io.WriteString(header, "\n  </head>")
 

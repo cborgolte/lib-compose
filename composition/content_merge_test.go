@@ -45,7 +45,7 @@ func Test_ContentMerge_PositiveCase(t *testing.T) {
 		stylesheetAttrs("/üst/das/möglich"),
 	}
 
-	body.AddStylesheets(sheets)
+	body.AddLinkTags(sheets)
 	cm := NewContentMerge(nil)
 
 	cm.AddContent(&MemoryContent{
@@ -117,7 +117,7 @@ func Test_ContentMerge_BodyCompositionWithExplicitNames(t *testing.T) {
 		stylesheetAttrs("/body/first"),
 		stylesheetAttrs("/body/second"),
 	}
-	body.AddStylesheets(sheets)
+	body.AddLinkTags(sheets)
 
 	cm.AddContent(&MemoryContent{
 		name: LayoutFragmentName,
@@ -129,14 +129,14 @@ func Test_ContentMerge_BodyCompositionWithExplicitNames(t *testing.T) {
 		stylesheetAttrs("/page/2A/first"),
 		stylesheetAttrs("/page/2A/second"),
 	}
-	page2A.AddStylesheets(sheets)
+	page2A.AddLinkTags(sheets)
 
 	page2B := NewStringFragment("<page2-body-b/>")
 	sheets = [][]html.Attribute{
 		stylesheetAttrs("/page/2B/first"),
 		stylesheetAttrs("/page/2B/second"),
 	}
-	page2B.AddStylesheets(sheets)
+	page2B.AddLinkTags(sheets)
 
 	// this fragment is not rendered, so it's stylesheets should not appear in page header
 	pageUnreferenced := NewStringFragment("<unreferenced-body/>")
@@ -144,7 +144,7 @@ func Test_ContentMerge_BodyCompositionWithExplicitNames(t *testing.T) {
 		stylesheetAttrs("/unreferenced/first"),
 		stylesheetAttrs("/unreferenced/second"),
 	}
-	pageUnreferenced.AddStylesheets(sheets)
+	pageUnreferenced.AddLinkTags(sheets)
 
 	cm.AddContent(&MemoryContent{
 		name: "example1.com",
@@ -159,7 +159,7 @@ func Test_ContentMerge_BodyCompositionWithExplicitNames(t *testing.T) {
 		stylesheetAttrs("/page/3A/first"),
 		stylesheetAttrs("/page/3A/second"),
 	}
-	page3A.AddStylesheets(sheets)
+	page3A.AddLinkTags(sheets)
 	cm.AddContent(&MemoryContent{
 		name: "example2.com",
 		body: map[string]Fragment{

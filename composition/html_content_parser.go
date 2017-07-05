@@ -52,7 +52,7 @@ func (parser *HtmlContentParser) Parse(c *MemoryContent, in io.Reader) error {
 }
 
 func (parser *HtmlContentParser) parseHead(z *html.Tokenizer, c *MemoryContent) error {
-	var stylesheets [][]html.Attribute
+	var linkTags [][]html.Attribute
 	attrs := make([]html.Attribute, 0, 10)
 	headBuff := bytes.NewBuffer(nil)
 
@@ -79,8 +79,9 @@ forloop:
 				}
 				continue
 			}
-			if styleAttrs, isStylesheet := getStylesheet(tag, attrs); isStylesheet {
-				stylesheets = append(stylesheets, styleAttrs)
+			styleAttrs, tagType := getTag(tag, attrs)
+			if tagType == LINK {
+				linkTags = append(linkTags, styleAttrs)
 				continue
 			}
 		case tt == html.EndTagToken:
@@ -93,25 +94,35 @@ forloop:
 
 	s := headBuff.String()
 	st := strings.Trim(s, " \n")
-	if len(st) > 0 || len(stylesheets) > 0 {
+	if len(st) > 0 || len(linkTags) > 0 {
 		frg := NewStringFragment(st)
-		frg.AddStylesheets(stylesheets)
+		frg.AddLinkTags(linkTags)
 		c.head = frg
 	}
 	return nil
 }
 
-func getStylesheet(tag []byte, attrs []html.Attribute) (styleAttrs []html.Attribute, isStylesheet bool) {
+type TagType int
+
+const (
+	LINK TagType = iota
+	SCRIPT
+	SCRIPT_INLINE
+	IMG
+	UNKNOWN
+)
+
+func getTag(tag []byte, attrs []html.Attribute) (styleAttrs []html.Attribute, tagType TagType) {
 	styleAttrs = nil
-	if string(tag) == "link" && attrHasValue(attrs, "rel", "stylesheet") {
+	if string(tag) == "link" {
 		styleAttrs = append(styleAttrs, attrs...)
-		return styleAttrs, true
+		return styleAttrs, LINK
 	}
-	return styleAttrs, false
+	return styleAttrs, UNKNOWN
 }
 
 func (parser *HtmlContentParser) parseBody(z *html.Tokenizer, c *MemoryContent) error {
-	var stylesheets [][]html.Attribute
+	var linkTags [][]html.Attribute
 	attrs := make([]html.Attribute, 0, 10)
 	bodyBuff := bytes.NewBuffer(nil)
 
@@ -179,8 +190,9 @@ forloop:
 					continue
 				}
 			}
-			if styleAttrs, isStylesheet := getStylesheet(tag, attrs); isStylesheet {
-				stylesheets = append(stylesheets, styleAttrs)
+			styleAttrs, tagType := getTag(tag, attrs)
+			if tagType == LINK {
+				linkTags = append(linkTags, styleAttrs)
 				continue
 			}
 
@@ -194,9 +206,9 @@ forloop:
 
 	s := bodyBuff.String()
 	if _, defaultFragmentExists := c.body[""]; !defaultFragmentExists {
-		if st := strings.Trim(s, " \n"); len(st) > 0 || len(stylesheets) > 0 {
+		if st := strings.Trim(s, " \n"); len(st) > 0 || len(linkTags) > 0 {
 			frg := NewStringFragment(st)
-			frg.AddStylesheets(stylesheets)
+			frg.AddLinkTags(linkTags)
 			c.body[""] = frg
 		}
 	}
@@ -205,7 +217,7 @@ forloop:
 }
 
 func parseFragment(z *html.Tokenizer) (f Fragment, dependencies map[string]Params, err error) {
-	var stylesheets [][]html.Attribute
+	var linkTags [][]html.Attribute
 	attrs := make([]html.Attribute, 0, 10)
 	dependencies = make(map[string]Params)
 
@@ -241,8 +253,9 @@ forloop:
 				continue
 			}
 
-			if styleAttrs, isStylesheet := getStylesheet(tag, attrs); isStylesheet {
-				stylesheets = append(stylesheets, styleAttrs)
+			styleAttrs, tagType := getTag(tag, attrs)
+			if tagType == LINK {
+				linkTags = append(linkTags, styleAttrs)
 				continue
 			}
 
@@ -255,7 +268,7 @@ forloop:
 	}
 
 	frg := NewStringFragment(buff.String())
-	frg.AddStylesheets(stylesheets)
+	frg.AddLinkTags(linkTags)
 	return frg, dependencies, nil
 }
 
@@ -356,20 +369,20 @@ forloop:
 
 			switch {
 			case string(tag) == "meta":
-				if (processMetaTag(string(tag), attrs, headPropertyMap)) {
+				if processMetaTag(string(tag), attrs, headPropertyMap) {
 					headBuff.Write(raw)
 				}
 				continue forloop
 			case string(tag) == "link":
-				if (processLinkTag(attrs, headPropertyMap)) {
+				if processLinkTag(attrs, headPropertyMap) {
 					headBuff.Write(raw)
 				}
 				continue forloop
 			case string(tag) == "title":
-				if (headPropertyMap["title"] == "") {
+				if headPropertyMap["title"] == "" {
 					headPropertyMap["title"] = "title"
 					headBuff.Write(raw)
-				} else if (tt != html.SelfClosingTagToken) {
+				} else if tt != html.SelfClosingTagToken {
 					skipCompleteTag(z, "title")
 				}
 				continue forloop
@@ -442,33 +455,33 @@ func processMetaTag(tagName string, attrs []html.Attribute, metaMap map[string]s
 /**
 Returns true if a link tag can be processed.
 Checks if a <link> tag contains a canonical relation and avoids multiple canonical definitions.
- */
+*/
 func processLinkTag(attrs []html.Attribute, metaMap map[string]string) bool {
-	if (len(attrs) == 0) {
+	if len(attrs) == 0 {
 		return true
 	}
 
-        const canonical = "canonical"
+	const canonical = "canonical"
 	var key string
 	var value string
 
-        // e.g.: <link rel="canonical" href="/baumarkt/suche"> => key = canonical; val = /baumarkt/suche
+	// e.g.: <link rel="canonical" href="/baumarkt/suche"> => key = canonical; val = /baumarkt/suche
 	for _, attr := range attrs {
-                if (attr.Key == "rel" && attr.Val == canonical) {
-                        key = canonical
-                }
-                if (attr.Key == "href") {
-                        value = attr.Val
-                }
-        }
-        if (key == canonical && metaMap[canonical] != "") {
-                // if canonical is already in map then don't process this link tag
-                return false
-        }
+		if attr.Key == "rel" && attr.Val == canonical {
+			key = canonical
+		}
+		if attr.Key == "href" {
+			value = attr.Val
+		}
+	}
+	if key == canonical && metaMap[canonical] != "" {
+		// if canonical is already in map then don't process this link tag
+		return false
+	}
 
-        if (key != "" && value != "") {
-                metaMap[key] = value
-        }
+	if key != "" && value != "" {
+		metaMap[key] = value
+	}
 	return true
 }
 

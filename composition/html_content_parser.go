@@ -22,6 +22,34 @@ const (
 	ParamAttrPrefix = "param-"
 )
 
+type TagType int
+
+const (
+	LINK TagType = iota
+	META
+	SCRIPT
+	SCRIPT_INLINE
+	UNKNOWN
+)
+
+func getTag(tag []byte, attrs []html.Attribute) (tagAttrs []html.Attribute, tagType TagType) {
+	tagAttrs = nil
+	tagAttrs = append(tagAttrs, attrs...)
+	if string(tag) == "link" {
+		return tagAttrs, LINK
+	}
+	if string(tag) == "meta" {
+		return tagAttrs, META
+	}
+	if string(tag) == "script" {
+		if _, hasUrl := getAttr(attrs, "src"); !hasUrl {
+			return tagAttrs, SCRIPT_INLINE
+		}
+		return tagAttrs, SCRIPT
+	}
+	return nil, UNKNOWN
+}
+
 type HtmlContentParser struct {
 }
 
@@ -53,6 +81,7 @@ func (parser *HtmlContentParser) Parse(c *MemoryContent, in io.Reader) error {
 
 func (parser *HtmlContentParser) parseHead(z *html.Tokenizer, c *MemoryContent) error {
 	var linkTags [][]html.Attribute
+	var scriptTags [][]html.Attribute
 	attrs := make([]html.Attribute, 0, 10)
 	headBuff := bytes.NewBuffer(nil)
 
@@ -79,9 +108,13 @@ forloop:
 				}
 				continue
 			}
-			styleAttrs, tagType := getTag(tag, attrs)
+			tagAttrs, tagType := getTag(tag, attrs)
 			if tagType == LINK {
-				linkTags = append(linkTags, styleAttrs)
+				linkTags = append(linkTags, tagAttrs)
+				continue
+			}
+			if tagType == SCRIPT {
+				scriptTags = append(scriptTags, tagAttrs)
 				continue
 			}
 		case tt == html.EndTagToken:
@@ -94,35 +127,18 @@ forloop:
 
 	s := headBuff.String()
 	st := strings.Trim(s, " \n")
-	if len(st) > 0 || len(linkTags) > 0 {
+	if len(st) > 0 || len(linkTags) > 0 || len(scriptTags) > 0 {
 		frg := NewStringFragment(st)
 		frg.AddLinkTags(linkTags)
+		frg.AddScriptTags(scriptTags)
 		c.head = frg
 	}
 	return nil
 }
 
-type TagType int
-
-const (
-	LINK TagType = iota
-	SCRIPT
-	SCRIPT_INLINE
-	IMG
-	UNKNOWN
-)
-
-func getTag(tag []byte, attrs []html.Attribute) (styleAttrs []html.Attribute, tagType TagType) {
-	styleAttrs = nil
-	if string(tag) == "link" {
-		styleAttrs = append(styleAttrs, attrs...)
-		return styleAttrs, LINK
-	}
-	return styleAttrs, UNKNOWN
-}
-
 func (parser *HtmlContentParser) parseBody(z *html.Tokenizer, c *MemoryContent) error {
 	var linkTags [][]html.Attribute
+	var scriptTags [][]html.Attribute
 	attrs := make([]html.Attribute, 0, 10)
 	bodyBuff := bytes.NewBuffer(nil)
 
@@ -190,9 +206,13 @@ forloop:
 					continue
 				}
 			}
-			styleAttrs, tagType := getTag(tag, attrs)
+			tagAttrs, tagType := getTag(tag, attrs)
 			if tagType == LINK {
-				linkTags = append(linkTags, styleAttrs)
+				linkTags = append(linkTags, tagAttrs)
+				continue
+			}
+			if tagType == SCRIPT {
+				scriptTags = append(scriptTags, tagAttrs)
 				continue
 			}
 
@@ -206,9 +226,10 @@ forloop:
 
 	s := bodyBuff.String()
 	if _, defaultFragmentExists := c.body[""]; !defaultFragmentExists {
-		if st := strings.Trim(s, " \n"); len(st) > 0 || len(linkTags) > 0 {
+		if st := strings.Trim(s, " \n"); len(st) > 0 || len(linkTags) > 0 || len(scriptTags) > 0 {
 			frg := NewStringFragment(st)
 			frg.AddLinkTags(linkTags)
+			frg.AddScriptTags(scriptTags)
 			c.body[""] = frg
 		}
 	}
@@ -218,6 +239,7 @@ forloop:
 
 func parseFragment(z *html.Tokenizer) (f Fragment, dependencies map[string]Params, err error) {
 	var linkTags [][]html.Attribute
+	var scriptTags [][]html.Attribute
 	attrs := make([]html.Attribute, 0, 10)
 	dependencies = make(map[string]Params)
 
@@ -253,10 +275,14 @@ forloop:
 				continue
 			}
 
-			styleAttrs, tagType := getTag(tag, attrs)
+			tagAttrs, tagType := getTag(tag, attrs)
 			if tagType == LINK {
-				linkTags = append(linkTags, styleAttrs)
+				linkTags = append(linkTags, tagAttrs)
 				continue
+			}
+
+			if tagType == SCRIPT {
+				scriptTags = append(scriptTags, tagAttrs)
 			}
 
 		case tt == html.EndTagToken:
@@ -269,6 +295,7 @@ forloop:
 
 	frg := NewStringFragment(buff.String())
 	frg.AddLinkTags(linkTags)
+	frg.AddScriptTags(scriptTags)
 	return frg, dependencies, nil
 }
 

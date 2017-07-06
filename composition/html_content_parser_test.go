@@ -349,16 +349,25 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 	<!-- will be found by the HeaderParser -->
 	<link rel="stylesheet" href="/navigationservice/stylesheets/main-93174ed18d.css">
 	<link rel="stylesheet" href="/navigationservice/stylesheets/main-93174ed18d.css">
+	<script src="/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js" async></script>
+	<script>var test="abc";</script>
+	<script src="/rebrush/assets/typo/javascripts/jquery.min.js" async></script>
 	<link rel="canonical" href="/baumarkt/bauen-renovieren/suche">
 	<link rel="stylesheet" href="/navigationservice/stylesheets/main-03174ed18d.css">
 </head>
 <body>
 	<div>
 		<!-- will be found by the BodyParser -->
+	<script src="/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js" async></script>
 		<link rel="stylesheet" href="/productservice/stylesheets/main-93174ed18d.css">
+	<script>var test="abc";</script>
+	<script src="/rebrush/assets/typo/javascripts/jquery.min.js" async></script>
 		<uic-fragment name="content">
 		Bli Bla blub
+	<script src="/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js" async></script>
+	<script>var test="abc";</script>
 		<link rel="stylesheet" href="/basketservice/stylesheets/main-93174ed18d.css">
+	<script src="/rebrush/assets/typo/javascripts/jquery.min.js" async></script>
 		</uic-fragment>
 	</div>
 </body>
@@ -381,6 +390,29 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 		joinAttrs(c.Body()["content"].LinkTags()[0]))
 	a.Equal("rel=\"stylesheet\" href=\"/productservice/stylesheets/main-93174ed18d.css\"",
 		joinAttrs(c.Body()[""].LinkTags()[0]))
+
+	// test script tags
+	scriptTags := c.Head().ScriptTags()
+	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
+		joinAttrs(scriptTags[0]))
+	a.Equal("src=\"/rebrush/assets/typo/javascripts/jquery.min.js\" async=\"\"",
+		joinAttrs(scriptTags[1]))
+	a.Equal(2, len(scriptTags))
+
+	scriptTags := c.Body()[""].ScriptTags()
+	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
+		joinAttrs(scriptTags[0]))
+	a.Equal("src=\"/rebrush/assets/typo/javascripts/jquery.min.js\" async=\"\"",
+		joinAttrs(scriptTags[1]))
+	a.Equal(2, len(scriptTags))
+
+	scriptTags := c.Body()["content"].ScriptTags()
+	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
+		joinAttrs(scriptTags[0]))
+	a.Equal("src=\"/rebrush/assets/typo/javascripts/jquery.min.js\" async=\"\"",
+		joinAttrs(scriptTags[1]))
+	a.Equal(2, len(scriptTags))
+
 }
 
 func Test_HtmlContentParser_collectStylesheets_OverrideDefault(t *testing.T) {
@@ -724,6 +756,7 @@ func Test_joinAttrs(t *testing.T) {
 	a.Equal(`a="b" some="attribute"`, joinAttrs([]html.Attribute{{Key: "a", Val: "b"}, {Key: "some", Val: "attribute"}}))
 	a.Equal(`a="--&#34;--"`, joinAttrs([]html.Attribute{{Key: "a", Val: `--"--`}}))
 	a.Equal(`ns:a="b"`, joinAttrs([]html.Attribute{{Namespace: "ns", Key: "a", Val: "b"}}))
+	a.Equal(`async=""`, joinAttrs([]html.Attribute{{Key: "async", Val: ""}}))
 }
 
 func eqFragment(t *testing.T, expected string, f Fragment) {
@@ -1066,6 +1099,32 @@ func Test_ParseHeadFragment_Filter_Link_Canonical_Tag_without_existing_Map(t *te
 	resultString := removeTabsAndNewLines(headFragment.Content())
 
 	a.Equal(expectedParsedHead, resultString)
+}
+
+func Test_getTag(t *testing.T) {
+	a := assert.New(t)
+
+	vals := []struct {
+		tagType TagType
+		string
+	}{
+		{LINK, `<link rel="apple-touch-icon" sizes="76x76" href="/productservice/favicons/apple-touch-icon-76x76-1499095290-5d8490ac47.png">`},
+		{LINK, `<LiNk rel="apple-touch-icon" sizes="76x76" href="/productservice/favicons/apple-touch-icon-76x76-1499095290-5d8490ac47.png">`},
+		{META, `<meta charset="utf-8">`},
+		{SCRIPT, `<script type="text/javascript" src="/productservice/javascripts/loadscript-1499095290-572cdaf4d3.js"></script>`},
+		{SCRIPT, `<Script type="text/javascript" src="/productservice/javascripts/loadscript-1499095290-572cdaf4d3.js"></script>`},
+		{SCRIPT_INLINE, `<script type="text/javascript">function inlineJS(){console.log('hello');}</script>`},
+	}
+
+	for _, v := range vals {
+		z := html.NewTokenizer(bytes.NewBufferString(v.string))
+		_ = z.Next()
+		tag, _ := z.TagName()
+		attrs := readAttributes(z, make([]html.Attribute, 0, 10))
+		_, typ := getTag(tag, attrs)
+		a.Equal(v.tagType, typ)
+	}
+
 }
 
 func removeTabsAndNewLines(stringToProcess string) string {

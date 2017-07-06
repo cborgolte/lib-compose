@@ -39,6 +39,8 @@ type ContentMerge struct {
 
 	// all linkTags contained in used fragments
 	linkTags [][]html.Attribute
+	// all script tags contained in used fragments
+	scriptTags [][]html.Attribute
 
 	// strategy to prevent duplicacte <link rel="stylesheet"> tags
 	linkTagDeduplicationStrategy DeduplicationStrategy
@@ -64,6 +66,7 @@ func (cntx *ContentMerge) SetDeduplicationStrategy(strategy DeduplicationStrateg
 
 func (cntx *ContentMerge) collectStylesheets(f Fragment) {
 	cntx.linkTags = append(cntx.linkTags, f.LinkTags()...)
+	cntx.scriptTags = append(cntx.scriptTags, f.ScriptTags()...)
 }
 
 func (cntx *ContentMerge) deduplicateStylesheets() {

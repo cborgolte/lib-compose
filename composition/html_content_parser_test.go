@@ -399,19 +399,24 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 		joinAttrs(scriptTags[1]))
 	a.Equal(2, len(scriptTags))
 
-	scriptTags := c.Body()[""].ScriptTags()
+	scriptTags = c.Body()[""].ScriptTags()
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
 		joinAttrs(scriptTags[0]))
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/jquery.min.js\" async=\"\"",
 		joinAttrs(scriptTags[1]))
 	a.Equal(2, len(scriptTags))
 
-	scriptTags := c.Body()["content"].ScriptTags()
+	scriptTags = c.Body()["content"].ScriptTags()
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
 		joinAttrs(scriptTags[0]))
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/jquery.min.js\" async=\"\"",
 		joinAttrs(scriptTags[1]))
 	a.Equal(2, len(scriptTags))
+
+	// assert that inline scripts were kept in the fragment content
+	a.Contains(c.Body()[""].(*StringFragment).Content(), `<script>var test="abc";</script>`)
+	// but other scripts are removed from content.
+	a.NotContains(c.Body()[""].(*StringFragment).Content(), `<script src="/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js" async></script>`)
 
 }
 
@@ -785,7 +790,7 @@ func containsFragment(t *testing.T, contained string, f Fragment) {
 	sfStripped = strings.Replace(string(sfStripped), "\n", "", -1)
 
 	if !strings.Contains(sfStripped, contained) {
-		t.Error("Fragment is not equal: \nexpected: ", contained, "\nactual:  ", sf)
+		t.Error("Fragment does not contain expected value: \nexpected: ", contained, "\nactual:  ", sf)
 	}
 }
 

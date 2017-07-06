@@ -283,6 +283,7 @@ forloop:
 
 			if tagType == SCRIPT {
 				scriptTags = append(scriptTags, tagAttrs)
+				continue
 			}
 
 		case tt == html.EndTagToken:

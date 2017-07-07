@@ -64,25 +64,38 @@ func (cntx *ContentMerge) SetDeduplicationStrategy(strategy DeduplicationStrateg
 	cntx.linkTagDeduplicationStrategy = strategy
 }
 
+// TODO: Rename method
 func (cntx *ContentMerge) collectStylesheets(f Fragment) {
 	cntx.linkTags = append(cntx.linkTags, f.LinkTags()...)
 	cntx.scriptTags = append(cntx.scriptTags, f.ScriptTags()...)
 }
 
-func (cntx *ContentMerge) deduplicateStylesheets() {
+func (cntx *ContentMerge) deduplicateLinkTags() {
 	if cntx.linkTagDeduplicationStrategy != nil {
 		cntx.linkTags = cntx.linkTagDeduplicationStrategy.Deduplicate(cntx.linkTags)
 	}
 }
 
-func (cntx *ContentMerge) writeStylesheets(w io.Writer) {
+func (cntx *ContentMerge) writeLinkTags(w io.Writer) {
 
 	// first make sure, linkTags are deduplicated
-	cntx.deduplicateStylesheets()
+	cntx.deduplicateLinkTags()
 
 	for _, attrs := range cntx.linkTags {
 		joinedAttr := joinAttrs(attrs)
 		stylesheet := fmt.Sprintf("\n    <link %s>", joinedAttr)
+		io.WriteString(w, stylesheet)
+	}
+}
+
+func (cntx *ContentMerge) writeScriptTags(w io.Writer) {
+
+	// first make sure, linkTags are deduplicated
+	// cntx.deduplicateLinkTags()
+
+	for _, attrs := range cntx.scriptTags {
+		joinedAttr := joinAttrs(attrs)
+		stylesheet := fmt.Sprintf("\n      <script %s></script>", joinedAttr)
 		io.WriteString(w, stylesheet)
 	}
 }
@@ -142,20 +155,29 @@ func (cntx *ContentMerge) GetHtml() ([]byte, error) {
 		return nil, err
 	}
 
+	// write inline scripts etc. to own buffer
+	tailInline := bytes.NewBuffer(make([]byte, 0, DefaultBufferSize))
 	for _, f := range cntx.Tail {
 		cntx.collectStylesheets(f)
-		if err := f.Execute(body, cntx.MetaJSON, executeFragment); err != nil {
+		if err := f.Execute(tailInline, cntx.MetaJSON, executeFragment); err != nil {
 			return nil, err
 		}
 	}
-	io.WriteString(body, "\n  </body>\n</html>\n")
+
+	io.WriteString(tailInline, "\n  </body>\n</html>\n")
 
 	// write the collected linkTags to the header and close it
-	cntx.writeStylesheets(header)
+	cntx.writeLinkTags(header)
 	io.WriteString(header, "\n  </head>")
 
-	// return concatenated header and body
-	html := append(header.Bytes(), body.Bytes()...)
+	// write the collected script tags in own buffer
+	tailScripts := bytes.NewBuffer(make([]byte, 0, DefaultBufferSize))
+	cntx.writeScriptTags(tailScripts)
+
+	// return concatenated header, tails and body
+	html := append(header.Bytes(),
+		append(body.Bytes(),
+			append(tailScripts.Bytes(), tailInline.Bytes()...)...)...)
 	return html, nil
 }
 

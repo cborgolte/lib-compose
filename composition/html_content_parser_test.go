@@ -417,6 +417,10 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 	a.Contains(c.Body()[""].(*StringFragment).Content(), `<script>var test="abc";</script>`)
 	// but other scripts are removed from content.
 	a.NotContains(c.Body()[""].(*StringFragment).Content(), `<script src="/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js" async></script>`)
+	a.NotContains(c.Body()[""].(*StringFragment).Content(), ` </script>`)
+	a.NotContains(c.Head().(*StringFragment).Content(), ` </script>`)
+
+	t.Log(c.Head().(*StringFragment).Content())
 
 }
 

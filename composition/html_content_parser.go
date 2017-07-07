@@ -115,7 +115,9 @@ forloop:
 			}
 			if tagType == SCRIPT {
 				scriptTags = append(scriptTags, tagAttrs)
-				continue
+				if skipSubtree(z, tt, string(tag), attrs) {
+					continue
+				}
 			}
 		case tt == html.EndTagToken:
 			if string(tag) == "head" {
@@ -213,7 +215,9 @@ forloop:
 			}
 			if tagType == SCRIPT {
 				scriptTags = append(scriptTags, tagAttrs)
-				continue
+				if skipSubtree(z, tt, string(tag), attrs) {
+					continue
+				}
 			}
 
 		case tt == html.EndTagToken:
@@ -283,7 +287,9 @@ forloop:
 
 			if tagType == SCRIPT {
 				scriptTags = append(scriptTags, tagAttrs)
-				continue
+				if skipSubtree(z, tt, string(tag), attrs) {
+					continue
+				}
 			}
 
 		case tt == html.EndTagToken:
@@ -539,7 +545,7 @@ func skipSubtreeIfUicRemove(z *html.Tokenizer, tt html.TokenType, tagName string
 	if !foundRemoveTag {
 		return false
 	}
-
+	// return skipSubtree(z, tt, tagName, attrs)
 	if isSelfClosingTag(tagName, tt) {
 		return true
 	}
@@ -548,6 +554,33 @@ func skipSubtreeIfUicRemove(z *html.Tokenizer, tt html.TokenType, tagName string
 	for {
 		tt := z.Next()
 		tag, _ := z.TagName()
+
+		switch {
+		case tt == html.ErrorToken:
+			return true
+		case tt == html.StartTagToken && !isSelfClosingTag(string(tag), tt):
+			depth++
+		case tt == html.EndTagToken:
+			depth--
+			if depth < 0 {
+				return true
+			}
+		}
+	}
+}
+
+func skipSubtree(z *html.Tokenizer, tt html.TokenType, tagName string, attrs []html.Attribute) bool {
+	fmt.Println("============================ skipSubtree ", tt, tagName)
+	if isSelfClosingTag(tagName, tt) {
+		return true
+	}
+
+	depth := 0
+	for {
+		tt := z.Next()
+		tag, _ := z.TagName()
+
+		fmt.Println("============================ skipSubtree ", depth, tt, tagName)
 
 		switch {
 		case tt == html.ErrorToken:

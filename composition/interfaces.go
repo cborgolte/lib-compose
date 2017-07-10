@@ -18,6 +18,9 @@ type Fragment interface {
 	// MemorySize return the estimated size in bytes, for this object in memory
 	MemorySize() int
 
+	// Return the content of this fragment
+	Content() string
+
 	// Return the list of link and script tags used in this fragment
 	LinkTags() [][]html.Attribute
 	ScriptTags() [][]html.Attribute

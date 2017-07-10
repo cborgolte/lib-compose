@@ -505,6 +505,11 @@ func Test_HtmlContentParser_parseBody(t *testing.T) {
 	a.Equal(5, len(c.Dependencies()))
 	a.Equal(c.Dependencies()["example.com/xyz"], Params{"foo": "bar", "bazz": "buzz"})
 	a.Equal(c.Dependencies()["example.com/foo"], Params{"bli": "bla"})
+	a.Contains(c.Dependencies(), "example.com/foo")
+	a.Contains(c.Dependencies(), "example.com/optional")
+	a.Contains(c.Dependencies(), "example.com/tail")
+	a.Contains(c.Dependencies(), "example.com/xyz")
+	a.Contains(c.Dependencies(), "local")
 }
 
 func Test_HtmlContentParser_fetchDependencies(t *testing.T) {

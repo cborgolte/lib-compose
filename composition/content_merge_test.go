@@ -1,7 +1,9 @@
 package composition
 
 import (
+	"bytes"
 	"errors"
+	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -251,4 +253,65 @@ func (buff closedWriterMock) Write(b []byte) (int, error) {
 
 func asFetchResult(c Content) *FetchResult {
 	return &FetchResult{Content: c, Def: &FetchDefinition{URL: c.Name()}}
+}
+
+func Test_MergeMultipleContents(t *testing.T) {
+	a := assert.New(t)
+
+	cm := NewContentMerge(nil)
+	cm.AddContent(getFixture("layout1.html"), 0)
+	cm.AddContent(getFixture("fragment_header.html"), 0)
+	cm.AddContent(getFixture("fragment_content.html"), 0)
+	cm.AddContent(getFixture("fragment_header2.html"), 0)
+
+	html, err := cm.GetHtml()
+	a.NoError(err)
+	sHtml := string(html)
+	a.Contains(sHtml, "TEST-CONTENT")
+	a.Contains(sHtml, "TEST-HEADER 2")
+	a.Contains(sHtml, "<title>layout-header</title>")
+	a.Contains(sHtml, "<title>test-header</title>")
+	a.Contains(sHtml, "<title>content-header</title>")
+	a.Contains(sHtml, "<title>test-header 2</title>")
+}
+
+func Test_MergeMultipleContentsPrioritized(t *testing.T) {
+	a := assert.New(t)
+
+	cm := NewContentMerge(nil)
+	cm.AddContent(getFixture("layout1.html"), 0)
+	cm.AddContent(getFixture("fragment_header.html"), 0)
+	cm.AddContent(getFixture("fragment_content.html"), 1)
+	cm.AddContent(getFixture("fragment_header2.html"), 0)
+
+	html, err := cm.GetHtml()
+	a.NoError(err)
+	sHtml := string(html)
+	a.Contains(sHtml, "TEST-CONTENT")
+	a.Contains(sHtml, "TEST-HEADER 2")
+	// Notice: This assertion is somewhat unexpected. Normally one would expect
+	// the title of fragment_content.html here. But prioritization is done somewhere
+	// else in this library and the priority value of the AddContent() method is
+	// only used as a flag.
+	a.Contains(sHtml, "<title>test-header 2</title>")
+}
+
+func getFixture(name string) (c *MemoryContent) {
+	dat, err := ioutil.ReadFile("testdata/" + name)
+	if err != nil {
+		panic(err)
+	}
+	c, err = parse(string(dat))
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func parse(buf string) (c *MemoryContent, err error) {
+	parser := &HtmlContentParser{}
+	z := bytes.NewBufferString(buf)
+	c = NewMemoryContent()
+	err = parser.Parse(c, z)
+	return c, err
 }

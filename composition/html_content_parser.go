@@ -570,7 +570,6 @@ func skipSubtreeIfUicRemove(z *html.Tokenizer, tt html.TokenType, tagName string
 }
 
 func skipSubtree(z *html.Tokenizer, tt html.TokenType, tagName string, attrs []html.Attribute) bool {
-	fmt.Println("============================ skipSubtree ", tt, tagName)
 	if isSelfClosingTag(tagName, tt) {
 		return true
 	}
@@ -579,8 +578,6 @@ func skipSubtree(z *html.Tokenizer, tt html.TokenType, tagName string, attrs []h
 	for {
 		tt := z.Next()
 		tag, _ := z.TagName()
-
-		fmt.Println("============================ skipSubtree ", depth, tt, tagName)
 
 		switch {
 		case tt == html.ErrorToken:

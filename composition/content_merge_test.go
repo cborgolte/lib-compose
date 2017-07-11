@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io/ioutil"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -259,7 +260,7 @@ func Test_MergeMultipleContents(t *testing.T) {
 	a := assert.New(t)
 
 	cm := NewContentMerge(nil)
-	cm.AddContent(getFixture("layout1.html"), 0)
+	cm.AddContent(getFixtureWithName(LayoutFragmentName, "layout1.html"), 0)
 	cm.AddContent(getFixture("fragment_header.html"), 0)
 	cm.AddContent(getFixture("fragment_content.html"), 0)
 	cm.AddContent(getFixture("fragment_header2.html"), 0)
@@ -279,7 +280,7 @@ func Test_MergeMultipleContentsPrioritized(t *testing.T) {
 	a := assert.New(t)
 
 	cm := NewContentMerge(nil)
-	cm.AddContent(getFixture("layout1.html"), 0)
+	cm.AddContent(getFixtureWithName(LayoutFragmentName, "layout1.html"), 0)
 	cm.AddContent(getFixture("fragment_header.html"), 0)
 	cm.AddContent(getFixture("fragment_content.html"), 1)
 	cm.AddContent(getFixture("fragment_header2.html"), 0)
@@ -290,14 +291,103 @@ func Test_MergeMultipleContentsPrioritized(t *testing.T) {
 	a.Contains(sHtml, "TEST-CONTENT")
 	a.Contains(sHtml, "TEST-HEADER 2")
 	// Notice: This assertion is somewhat unexpected. Normally one would expect
-	// the title of fragment_content.html here. But prioritization is done somewhere
-	// else in this library and the priority value of the AddContent() method is
-	// only used as a flag.
+	// the title of fragment_content.html here, which is given a higher priority.
+	// But prioritization is done somewhere else in this library and the
+	// priority value of the AddContent() method is only used as a flag.
 	a.Contains(sHtml, "<title>test-header 2</title>")
 }
 
-func getFixture(name string) (c *MemoryContent) {
-	dat, err := ioutil.ReadFile("testdata/" + name)
+func Test_MergeScriptTags(t *testing.T) {
+	a := assert.New(t)
+
+	cm := NewContentMerge(nil)
+	cm.AddContent(getFixtureWithName(LayoutFragmentName, "layout_scripts.html"), 0)
+	cm.AddContent(getFixture("fragment_scripts_header.html"), 0)
+	cm.AddContent(getFixture("fragment_scripts_footer.html"), 0)
+	cm.AddContent(getFixture("fragment_scripts_content.html"), 0)
+
+	html, err := cm.GetHtml()
+	a.NoError(err)
+	sHtml := trim(string(html))
+	a.Contains(sHtml, "TEST-CONTENT")
+	a.Contains(sHtml, "TEST-HEADER")
+
+	// assert that inline scritps are left at their origin position
+	a.Contains(sHtml, `
+<!-- header start -->
+<div>
+TEST-HEADER
+<script charset="utf-8">
+// inline script - header.body#header
+</script>
+</div>
+<!-- header end -->
+<script charset="utf-8">
+// inline script - layout.body
+</script>
+<!-- content start -->
+<div>
+TEST-CONTENT
+</div>
+<script charset="utf-8">
+// inline script - content.body#content
+</script>
+<hr>
+<!-- content end -->
+<!-- footer start -->
+<div>
+TEST-FOOTER
+<script charset="utf-8">
+// inline script - footer.body#footer
+</script>
+</div>
+<!-- footer end -->`)
+
+	// assert that extern scripts are collected and written in the correct order
+	// FIXME: Is this order correct? first all head-scripts then body then uic-tail?
+	a.Contains(sHtml, `
+<!-- footer end -->
+<script src="layout/head.js" charset="utf-8"></script>
+<script src="header/head.js" charset="utf-8"></script>
+<script src="footer/head.js" charset="utf-8"></script>
+<script src="content/head.js" charset="utf-8"></script>
+<script src="layout/body.js" charset="utf-8"></script>
+<script src="header/body/header.js" charset="utf-8"></script>
+<script src="content/body/content.js" charset="utf-8"></script>
+<script src="footer/body/footer.js" charset="utf-8"></script>
+<script src="footer/uic-tail.js" charset="utf-8"></script>
+<script src="content/body/content/uic-tail.js" charset="utf-8"></script>
+<!-- uic-tail content -->
+<script charset="utf-8">
+// inline script - content.body#uic-tail - 1
+</script>
+<script charset="utf-8">
+// inline script - content.body#uic-tail - 2
+</script>
+</body>
+</html>`)
+}
+
+func trim(html string) string {
+	splitted := strings.Split(html, "\n")
+	var result []string
+	for _, v := range splitted {
+		trimmed := strings.Trim(v, " \t\n\r")
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return strings.Join(result, "\n")
+}
+
+func getFixtureWithName(name string, filename string) (c *MemoryContent) {
+	c = getFixture(filename)
+	c.name = name
+	return c
+}
+
+func getFixture(filename string) (c *MemoryContent) {
+	dat, err := ioutil.ReadFile("testdata/" + filename)
 	if err != nil {
 		panic(err)
 	}

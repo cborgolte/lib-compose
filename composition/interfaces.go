@@ -12,6 +12,11 @@ import (
 	"golang.org/x/net/html"
 )
 
+type ScriptFragment *struct {
+	Attrs []html.Attribute
+	Text  []byte
+}
+
 type Fragment interface {
 	Execute(w io.Writer, data map[string]interface{}, executeNestedFragment func(nestedFragmentName string) error) error
 
@@ -23,7 +28,7 @@ type Fragment interface {
 
 	// Return the list of link and script tags used in this fragment
 	LinkTags() [][]html.Attribute
-	ScriptTags() [][]html.Attribute
+	ScriptTags() []ScriptFragment
 }
 
 type ContentLoader interface {

@@ -394,34 +394,33 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 	// test script tags
 	scriptTags := c.Head().ScriptTags()
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
-		joinAttrs(scriptTags[0]))
+		joinAttrs(scriptTags[0].Attrs))
+	a.Equal(`var test="abc";`, string(scriptTags[1].Text))
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/jquery.min.js\" async=\"\"",
-		joinAttrs(scriptTags[1]))
-	a.Equal(2, len(scriptTags))
+		joinAttrs(scriptTags[2].Attrs))
+	a.Equal(3, len(scriptTags))
 
 	scriptTags = c.Body()[""].ScriptTags()
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
-		joinAttrs(scriptTags[0]))
+		joinAttrs(scriptTags[0].Attrs))
+	a.Equal(`var test="abc";`, string(scriptTags[1].Text))
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/jquery.min.js\" async=\"\"",
-		joinAttrs(scriptTags[1]))
-	a.Equal(2, len(scriptTags))
+		joinAttrs(scriptTags[2].Attrs))
+	a.Equal(3, len(scriptTags))
 
 	scriptTags = c.Body()["content"].ScriptTags()
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
-		joinAttrs(scriptTags[0]))
+		joinAttrs(scriptTags[0].Attrs))
+	a.Equal(`var test="abc";`, string(scriptTags[1].Text))
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/jquery.min.js\" async=\"\"",
-		joinAttrs(scriptTags[1]))
-	a.Equal(2, len(scriptTags))
+		joinAttrs(scriptTags[2].Attrs))
+	a.Equal(3, len(scriptTags))
 
-	// assert that inline scripts were kept in the fragment content
-	a.Contains(c.Body()[""].(*StringFragment).Content(), `<script>var test="abc";</script>`)
-	// but other scripts are removed from content.
+	// assert that scripts were removed from the fragment content
+	a.NotContains(c.Body()[""].(*StringFragment).Content(), `<script>var test="abc";</script>`)
 	a.NotContains(c.Body()[""].(*StringFragment).Content(), `<script src="/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js" async></script>`)
 	a.NotContains(c.Body()[""].(*StringFragment).Content(), ` </script>`)
 	a.NotContains(c.Head().(*StringFragment).Content(), ` </script>`)
-
-	t.Log(c.Head().(*StringFragment).Content())
-
 }
 
 func Test_HtmlContentParser_collectStylesheets_OverrideDefault(t *testing.T) {

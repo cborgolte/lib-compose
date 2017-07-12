@@ -79,9 +79,16 @@ func (parser *HtmlContentParser) Parse(c *MemoryContent, in io.Reader) error {
 	}
 }
 
+func newScriptFragment(attr []html.Attribute, text []byte) ScriptFragment {
+	return &struct {
+		Attrs []html.Attribute
+		Text  []byte
+	}{attr, text}
+}
+
 func (parser *HtmlContentParser) parseHead(z *html.Tokenizer, c *MemoryContent) error {
 	var linkTags [][]html.Attribute
-	var scriptTags [][]html.Attribute
+	var scriptTags []ScriptFragment
 	attrs := make([]html.Attribute, 0, 10)
 	headBuff := bytes.NewBuffer(nil)
 
@@ -114,10 +121,18 @@ forloop:
 				continue
 			}
 			if tagType == SCRIPT {
-				scriptTags = append(scriptTags, tagAttrs)
+				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, nil))
 				if skipSubtree(z, tt, string(tag), attrs) {
 					continue
 				}
+			}
+			if tagType == SCRIPT_INLINE {
+				txt, err := parseInlineScript(z)
+				if err != nil {
+					return err
+				}
+				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, txt))
+				continue
 			}
 		case tt == html.EndTagToken:
 			if string(tag) == "head" {
@@ -140,7 +155,8 @@ forloop:
 
 func (parser *HtmlContentParser) parseBody(z *html.Tokenizer, c *MemoryContent) error {
 	var linkTags [][]html.Attribute
-	var scriptTags [][]html.Attribute
+	var scriptTags []ScriptFragment
+
 	attrs := make([]html.Attribute, 0, 10)
 	bodyBuff := bytes.NewBuffer(nil)
 
@@ -214,10 +230,18 @@ forloop:
 				continue
 			}
 			if tagType == SCRIPT {
-				scriptTags = append(scriptTags, tagAttrs)
+				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, nil))
 				if skipSubtree(z, tt, string(tag), attrs) {
 					continue
 				}
+			}
+			if tagType == SCRIPT_INLINE {
+				txt, err := parseInlineScript(z)
+				if err != nil {
+					return err
+				}
+				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, txt))
+				continue
 			}
 
 		case tt == html.EndTagToken:
@@ -243,7 +267,7 @@ forloop:
 
 func parseFragment(z *html.Tokenizer) (f Fragment, dependencies map[string]Params, err error) {
 	var linkTags [][]html.Attribute
-	var scriptTags [][]html.Attribute
+	var scriptTags []ScriptFragment
 	attrs := make([]html.Attribute, 0, 10)
 	dependencies = make(map[string]Params)
 
@@ -286,10 +310,18 @@ forloop:
 			}
 
 			if tagType == SCRIPT {
-				scriptTags = append(scriptTags, tagAttrs)
+				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, nil))
 				if skipSubtree(z, tt, string(tag), attrs) {
 					continue
 				}
+			}
+			if tagType == SCRIPT_INLINE {
+				txt, err := parseInlineScript(z)
+				if err != nil {
+					return nil, nil, err
+				}
+				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, txt))
+				continue
 			}
 
 		case tt == html.EndTagToken:
@@ -517,6 +549,23 @@ func processLinkTag(attrs []html.Attribute, metaMap map[string]string) bool {
 		metaMap[key] = value
 	}
 	return true
+}
+
+func parseInlineScript(z *html.Tokenizer) ([]byte, error) {
+	tt := z.Next()
+	if tt != html.TextToken {
+		return nil, fmt.Errorf("expected text node for inline script, but found %v, (%s)", tt.String(), z.Raw())
+	}
+
+	bytes := z.Text()
+
+	tt = z.Next()
+	tag, _ := z.TagName()
+	if tt != html.EndTagToken || string(tag) != "script" {
+		return nil, fmt.Errorf("Tag not properly ended. Expected </script>, but found %s", z.Raw())
+	}
+
+	return bytes, nil
 }
 
 func parseMetaJson(z *html.Tokenizer, c *MemoryContent) error {

@@ -40,7 +40,7 @@ type ContentMerge struct {
 	// all linkTags contained in used fragments
 	linkTags [][]html.Attribute
 	// all script tags contained in used fragments
-	scriptTags [][]html.Attribute
+	scriptTags []ScriptFragment
 
 	// strategy to prevent duplicacte <link rel="stylesheet"> tags
 	linkTagDeduplicationStrategy DeduplicationStrategy
@@ -93,9 +93,9 @@ func (cntx *ContentMerge) writeScriptTags(w io.Writer) {
 	// first make sure, linkTags are deduplicated
 	// cntx.deduplicateLinkTags()
 
-	for _, attrs := range cntx.scriptTags {
-		joinedAttr := joinAttrs(attrs)
-		stylesheet := fmt.Sprintf("\n      <script %s></script>", joinedAttr)
+	for _, scriptData := range cntx.scriptTags {
+		joinedAttr := joinAttrs(scriptData.Attrs)
+		stylesheet := fmt.Sprintf("\n      <script %s>%s</script>", joinedAttr, string(scriptData.Text))
 		io.WriteString(w, stylesheet)
 	}
 }

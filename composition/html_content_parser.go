@@ -79,7 +79,7 @@ func (parser *HtmlContentParser) Parse(c *MemoryContent, in io.Reader) error {
 	}
 }
 
-func newScriptFragment(attr []html.Attribute, text []byte) ScriptElement {
+func newScriptElement(attr []html.Attribute, text []byte) ScriptElement {
 	return &struct {
 		Attrs []html.Attribute
 		Text  []byte
@@ -95,7 +95,7 @@ func collectLinksAndScripts(tag []byte, attrs []html.Attribute, linkTags *[][]ht
 		skip = true
 	}
 	if tagType == SCRIPT {
-		*scriptTags = append(*scriptTags, newScriptFragment(tagAttrs, nil))
+		*scriptTags = append(*scriptTags, newScriptElement(tagAttrs, nil))
 		if skipSubtree(z, tt, string(tag), attrs) {
 			skip = true
 		}
@@ -105,7 +105,7 @@ func collectLinksAndScripts(tag []byte, attrs []html.Attribute, linkTags *[][]ht
 		if err != nil {
 			return false, err
 		}
-		*scriptTags = append(*scriptTags, newScriptFragment(tagAttrs, txt))
+		*scriptTags = append(*scriptTags, newScriptElement(tagAttrs, txt))
 		skip = true
 	}
 	return skip, nil

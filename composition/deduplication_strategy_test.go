@@ -49,20 +49,20 @@ func Test_SimpleDeduplicationStrategy(t *testing.T) {
 func Test_SimpleDeduplicationStrategyForScripts(t *testing.T) {
 	a := assert.New(t)
 	scripts := []ScriptElement{
-		newScriptFragment(scriptAttrs("/a"), nil),
-		newScriptFragment(scriptAttrs("/b"), nil),
-		newScriptFragment(scriptAttrs("/a"), nil),
-		newScriptFragment(nil, []byte("//bam!")),
-		newScriptFragment(stylesheetAttrs("/b"), []byte("//bam!")),
-		newScriptFragment(scriptAttrs("/c"), nil),
-		newScriptFragment(scriptAttrs("/a"), nil),
+		newScriptElement(scriptAttrs("/a"), nil),
+		newScriptElement(scriptAttrs("/b"), nil),
+		newScriptElement(scriptAttrs("/a"), nil),
+		newScriptElement(nil, []byte("//bam!")),
+		newScriptElement(stylesheetAttrs("/b"), []byte("//bam!")),
+		newScriptElement(scriptAttrs("/c"), nil),
+		newScriptElement(scriptAttrs("/a"), nil),
 	}
 	expected := []ScriptElement{
-		newScriptFragment(scriptAttrs("/a"), nil),
-		newScriptFragment(scriptAttrs("/b"), nil),
-		newScriptFragment(nil, []byte("//bam!")),
-		newScriptFragment(stylesheetAttrs("/b"), []byte("//bam!")),
-		newScriptFragment(scriptAttrs("/c"), nil),
+		newScriptElement(scriptAttrs("/a"), nil),
+		newScriptElement(scriptAttrs("/b"), nil),
+		newScriptElement(nil, []byte("//bam!")),
+		newScriptElement(stylesheetAttrs("/b"), []byte("//bam!")),
+		newScriptElement(scriptAttrs("/c"), nil),
 	}
 	deduper := new(SimpleDeduplicationStrategy)
 	result := deduper.DeduplicateElements(scripts)

@@ -425,16 +425,16 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 <body>
 	<div>
 		<!-- will be found by the BodyParser -->
-	<script src="/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js" async></script>
+		<script src="/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js" async></script>
 		<link rel="stylesheet" href="/productservice/stylesheets/main-93174ed18d.css">
-	<script>var test="abc";</script>
-	<script src="/rebrush/assets/typo/javascripts/jquery.min.js" async></script>
+		<script>var test="abc";</script>
+		<script src="/rebrush/assets/typo/javascripts/jquery.min.js" async></script>
 		<uic-fragment name="content">
-		Bli Bla blub
-	<script src="/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js" async></script>
-	<script>var test="abc";</script>
-		<link rel="stylesheet" href="/basketservice/stylesheets/main-93174ed18d.css">
-	<script src="/rebrush/assets/typo/javascripts/jquery.min.js" async></script>
+			Bli Bla blub
+			<script src="/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js" async></script>
+			<script>var test="abc";</script>
+			<link rel="stylesheet" href="/basketservice/stylesheets/main-93174ed18d.css">
+			<script src="/rebrush/assets/typo/javascripts/jquery.min.js" async></script>
 		</uic-fragment>
 	</div>
 </body>

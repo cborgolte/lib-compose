@@ -86,6 +86,31 @@ func newScriptFragment(attr []html.Attribute, text []byte) ScriptElement {
 	}{attr, text}
 }
 
+func collectLinksAndScripts(tag []byte, attrs []html.Attribute, linkTags *[][]html.Attribute, scriptTags *[]ScriptElement, z *html.Tokenizer, tt html.TokenType) (skip bool, err error) {
+
+	skip = false
+	tagAttrs, tagType := getTag(tag, attrs)
+	if tagType == LINK {
+		*linkTags = append(*linkTags, tagAttrs)
+		skip = true
+	}
+	if tagType == SCRIPT {
+		*scriptTags = append(*scriptTags, newScriptFragment(tagAttrs, nil))
+		if skipSubtree(z, tt, string(tag), attrs) {
+			skip = true
+		}
+	}
+	if tagType == SCRIPT_INLINE {
+		txt, err := parseInlineScript(z)
+		if err != nil {
+			return false, err
+		}
+		*scriptTags = append(*scriptTags, newScriptFragment(tagAttrs, txt))
+		skip = true
+	}
+	return skip, nil
+}
+
 func (parser *HtmlContentParser) parseHead(z *html.Tokenizer, c *MemoryContent) error {
 	var linkTags [][]html.Attribute
 	var scriptTags []ScriptElement
@@ -115,23 +140,12 @@ forloop:
 				}
 				continue
 			}
-			tagAttrs, tagType := getTag(tag, attrs)
-			if tagType == LINK {
-				linkTags = append(linkTags, tagAttrs)
-				continue
+			skip, err := collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
+			if err != nil {
+				return err
 			}
-			if tagType == SCRIPT {
-				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, nil))
-				if skipSubtree(z, tt, string(tag), attrs) {
-					continue
-				}
-			}
-			if tagType == SCRIPT_INLINE {
-				txt, err := parseInlineScript(z)
-				if err != nil {
-					return err
-				}
-				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, txt))
+
+			if skip {
 				continue
 			}
 		case tt == html.EndTagToken:
@@ -224,23 +238,13 @@ forloop:
 					continue
 				}
 			}
-			tagAttrs, tagType := getTag(tag, attrs)
-			if tagType == LINK {
-				linkTags = append(linkTags, tagAttrs)
-				continue
+
+			skip, err := collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
+			if err != nil {
+				return err
 			}
-			if tagType == SCRIPT {
-				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, nil))
-				if skipSubtree(z, tt, string(tag), attrs) {
-					continue
-				}
-			}
-			if tagType == SCRIPT_INLINE {
-				txt, err := parseInlineScript(z)
-				if err != nil {
-					return err
-				}
-				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, txt))
+
+			if skip {
 				continue
 			}
 
@@ -303,24 +307,12 @@ forloop:
 				continue
 			}
 
-			tagAttrs, tagType := getTag(tag, attrs)
-			if tagType == LINK {
-				linkTags = append(linkTags, tagAttrs)
-				continue
+			skip, err := collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
+			if err != nil {
+				return nil, nil, err
 			}
 
-			if tagType == SCRIPT {
-				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, nil))
-				if skipSubtree(z, tt, string(tag), attrs) {
-					continue
-				}
-			}
-			if tagType == SCRIPT_INLINE {
-				txt, err := parseInlineScript(z)
-				if err != nil {
-					return nil, nil, err
-				}
-				scriptTags = append(scriptTags, newScriptFragment(tagAttrs, txt))
+			if skip {
 				continue
 			}
 

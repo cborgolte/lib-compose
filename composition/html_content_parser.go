@@ -111,6 +111,34 @@ func collectLinksAndScripts(tag []byte, attrs []html.Attribute, linkTags *[][]ht
 	return skip, nil
 }
 
+func nextToken(z *html.Tokenizer, attrs []html.Attribute, stopToken ...string) (error, html.TokenType, []byte, []byte, []html.Attribute) {
+	tt := z.Next()
+	tag, _ := z.TagName()
+	raw := byteCopy(z.Raw()) // create a copy here, because readAttributes modifies z.Raw, if attributes contain an &
+	attrs = readAttributes(z, attrs)
+
+	switch {
+
+	case tt == html.ErrorToken:
+		return z.Err(), tt, tag, raw, attrs
+
+	case tt == html.StartTagToken || tt == html.SelfClosingTagToken:
+		if skipSubtreeIfUicRemove(z, tt, string(tag), attrs) {
+			return nextToken(z, attrs, stopToken...)
+		}
+
+	case tt == html.EndTagToken:
+		for _, tok := range stopToken {
+			if string(tag) == tok {
+				return io.EOF, tt, tag, raw, attrs
+			}
+		}
+	}
+
+	// return the next parseable token
+	return nil, tt, tag, raw, attrs
+}
+
 func (parser *HtmlContentParser) parseHead(z *html.Tokenizer, c *MemoryContent) error {
 	var linkTags [][]html.Attribute
 	var scriptTags []ScriptElement
@@ -119,39 +147,28 @@ func (parser *HtmlContentParser) parseHead(z *html.Tokenizer, c *MemoryContent) 
 
 forloop:
 	for {
-		tt := z.Next()
-		tag, _ := z.TagName()
-		raw := byteCopy(z.Raw()) // create a copy here, because readAttributes modifies z.Raw, if attributes contain an &
-		attrs = readAttributes(z, attrs)
-
-		switch {
-		case tt == html.ErrorToken:
-			if z.Err() != io.EOF {
+		err, tt, tag, raw, attrs := nextToken(z, attrs, "head")
+		if err != nil {
+			if err != io.EOF {
 				return z.Err()
 			}
 			break forloop
-		case tt == html.StartTagToken || tt == html.SelfClosingTagToken:
-			if skipSubtreeIfUicRemove(z, tt, string(tag), attrs) {
-				continue
-			}
-			if string(tag) == "script" && attrHasValue(attrs, "type", ScriptTypeMeta) {
-				if err := parseMetaJson(z, c); err != nil {
-					return err
-				}
-				continue
-			}
-			skip, err := collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
-			if err != nil {
+		}
+
+		if string(tag) == "script" && attrHasValue(attrs, "type", ScriptTypeMeta) {
+			if err := parseMetaJson(z, c); err != nil {
 				return err
 			}
+			continue
+		}
 
-			if skip {
-				continue
-			}
-		case tt == html.EndTagToken:
-			if string(tag) == "head" {
-				break forloop
-			}
+		skip, err := collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
+		if err != nil {
+			return err
+		}
+
+		if skip {
+			continue
 		}
 		headBuff.Write(raw)
 	}
@@ -181,21 +198,16 @@ func (parser *HtmlContentParser) parseBody(z *html.Tokenizer, c *MemoryContent) 
 
 forloop:
 	for {
-		tt := z.Next()
-		tag, _ := z.TagName()
-		raw := byteCopy(z.Raw()) // create a copy here, because readAttributes modifies z.Raw, if attributes contain an &
-		attrs = readAttributes(z, attrs)
-
-		switch {
-		case tt == html.ErrorToken:
-			if z.Err() != io.EOF {
+		err, tt, tag, raw, attrs := nextToken(z, attrs, "body")
+		if err != nil {
+			if err != io.EOF {
 				return z.Err()
 			}
 			break forloop
+		}
+
+		switch {
 		case tt == html.StartTagToken || tt == html.SelfClosingTagToken:
-			if skipSubtreeIfUicRemove(z, tt, string(tag), attrs) {
-				continue
-			}
 			if string(tag) == UicFragment {
 				if f, deps, err := parseFragment(z); err != nil {
 					return err
@@ -247,11 +259,6 @@ forloop:
 			if skip {
 				continue
 			}
-
-		case tt == html.EndTagToken:
-			if string(tag) == "body" {
-				break forloop
-			}
 		}
 		bodyBuff.Write(raw)
 	}
@@ -278,17 +285,15 @@ func parseFragment(z *html.Tokenizer) (f Fragment, dependencies map[string]Param
 	buff := bytes.NewBuffer(nil)
 forloop:
 	for {
-		tt := z.Next()
-		tag, _ := z.TagName()
-		raw := byteCopy(z.Raw()) // create a copy here, because readAttributes modifies z.Raw, if attributes contain an &
-		attrs = readAttributes(z, attrs)
-
-		switch {
-		case tt == html.ErrorToken:
-			if z.Err() != io.EOF {
+		err, tt, tag, raw, attrs := nextToken(z, attrs, UicFragment, UicTail)
+		if err != nil {
+			if err != io.EOF {
 				return nil, nil, z.Err()
 			}
 			break forloop
+		}
+
+		switch {
 		case tt == html.StartTagToken || tt == html.SelfClosingTagToken:
 			if string(tag) == UicInclude {
 				if replaceTextStart, replaceTextEnd, dependencyName, dependencyParams, err := getInclude(z, attrs); err != nil {
@@ -303,10 +308,6 @@ forloop:
 				}
 			}
 
-			if skipSubtreeIfUicRemove(z, tt, string(tag), attrs) {
-				continue
-			}
-
 			skip, err := collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
 			if err != nil {
 				return nil, nil, err
@@ -316,10 +317,6 @@ forloop:
 				continue
 			}
 
-		case tt == html.EndTagToken:
-			if string(tag) == UicFragment || string(tag) == UicTail {
-				break forloop
-			}
 		}
 		buff.Write(raw)
 	}

@@ -79,7 +79,7 @@ func (parser *HtmlContentParser) Parse(c *MemoryContent, in io.Reader) error {
 	}
 }
 
-func newScriptFragment(attr []html.Attribute, text []byte) ScriptFragment {
+func newScriptFragment(attr []html.Attribute, text []byte) ScriptElement {
 	return &struct {
 		Attrs []html.Attribute
 		Text  []byte
@@ -88,7 +88,7 @@ func newScriptFragment(attr []html.Attribute, text []byte) ScriptFragment {
 
 func (parser *HtmlContentParser) parseHead(z *html.Tokenizer, c *MemoryContent) error {
 	var linkTags [][]html.Attribute
-	var scriptTags []ScriptFragment
+	var scriptTags []ScriptElement
 	attrs := make([]html.Attribute, 0, 10)
 	headBuff := bytes.NewBuffer(nil)
 
@@ -155,7 +155,7 @@ forloop:
 
 func (parser *HtmlContentParser) parseBody(z *html.Tokenizer, c *MemoryContent) error {
 	var linkTags [][]html.Attribute
-	var scriptTags []ScriptFragment
+	var scriptTags []ScriptElement
 
 	attrs := make([]html.Attribute, 0, 10)
 	bodyBuff := bytes.NewBuffer(nil)
@@ -267,7 +267,7 @@ forloop:
 
 func parseFragment(z *html.Tokenizer) (f Fragment, dependencies map[string]Params, err error) {
 	var linkTags [][]html.Attribute
-	var scriptTags []ScriptFragment
+	var scriptTags []ScriptElement
 	attrs := make([]html.Attribute, 0, 10)
 	dependencies = make(map[string]Params)
 
@@ -554,6 +554,10 @@ func processLinkTag(attrs []html.Attribute, metaMap map[string]string) bool {
 func parseInlineScript(z *html.Tokenizer) ([]byte, error) {
 	tt := z.Next()
 	if tt != html.TextToken {
+		tag, _ := z.TagName()
+		if tt == html.EndTagToken && string(tag) == "script" {
+			return nil, nil // don't treat empty scripts as error
+		}
 		return nil, fmt.Errorf("expected text node for inline script, but found %v, (%s)", tt.String(), z.Raw())
 	}
 
@@ -562,7 +566,14 @@ func parseInlineScript(z *html.Tokenizer) ([]byte, error) {
 	tt = z.Next()
 	tag, _ := z.TagName()
 	if tt != html.EndTagToken || string(tag) != "script" {
-		return nil, fmt.Errorf("Tag not properly ended. Expected </script>, but found %s", z.Raw())
+		msg := "Tag not properly ended. Expected </script>"
+		if tag != nil {
+			msg = msg + ", but found " + string(tag)
+		}
+		if tt == html.ErrorToken {
+			msg = msg + ". Error was: " + z.Err().Error()
+		}
+		return nil, fmt.Errorf(msg)
 	}
 
 	return bytes, nil

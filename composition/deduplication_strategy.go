@@ -13,10 +13,45 @@ func (strategy *IdentityDeduplicationStrategy) Deduplicate(stylesheets [][]html.
 	return stylesheets
 }
 
+func (strategy *IdentityDeduplicationStrategy) DeduplicateElements(scriptElements []ScriptElement) []ScriptElement {
+	return scriptElements
+}
+
 // Simple strategy
 // Implements a very simple deduplication strategy. That is, it filters out
 // stylesheets with duplicate href value.
 type SimpleDeduplicationStrategy struct {
+}
+
+func (strategy *SimpleDeduplicationStrategy) DeduplicateElements(scriptElements []ScriptElement) (result []ScriptElement) {
+	knownSrc := map[string]struct{}{}
+	for _, scriptElement := range scriptElements {
+
+		/*
+		// inline script w/o attributes
+		if scriptElement.Attrs == nil && scriptElement.Text != nil {
+			result = append(result, scriptElement)
+			continue
+		}
+		*/
+
+		// inline script with attributes (excluding the src attribute)
+		srcAttr, attrExists := getAttr(scriptElement.Attrs, "src")
+		if !attrExists {
+			if scriptElement.Text != nil {
+				result = append(result, scriptElement)
+			}
+			continue
+		}
+
+		src := srcAttr.Val
+		_, known := knownSrc[src]
+		if !known {
+			result = append(result, scriptElement)
+			knownSrc[src] = struct{}{}
+		}
+	}
+	return result
 }
 
 // Remove duplicate entries from hrefs.

@@ -260,10 +260,10 @@ func Test_MergeMultipleContents(t *testing.T) {
 	a := assert.New(t)
 
 	cm := NewContentMerge(nil)
-	cm.AddContent(getFixtureWithName(LayoutFragmentName, "layout1.html"), 0)
-	cm.AddContent(getFixture("fragment_header.html"), 0)
-	cm.AddContent(getFixture("fragment_content.html"), 0)
-	cm.AddContent(getFixture("fragment_header2.html"), 0)
+	cm.AddContent(getFixtureWithName(LayoutFragmentName, "simple/layout1.html"), 0)
+	cm.AddContent(getFixture("simple/fragment_header.html"), 0)
+	cm.AddContent(getFixture("simple/fragment_content.html"), 0)
+	cm.AddContent(getFixture("simple/fragment_header2.html"), 0)
 
 	html, err := cm.GetHtml()
 	a.NoError(err)
@@ -280,10 +280,10 @@ func Test_MergeMultipleContentsPrioritized(t *testing.T) {
 	a := assert.New(t)
 
 	cm := NewContentMerge(nil)
-	cm.AddContent(getFixtureWithName(LayoutFragmentName, "layout1.html"), 0)
-	cm.AddContent(getFixture("fragment_header.html"), 0)
-	cm.AddContent(getFixture("fragment_content.html"), 1)
-	cm.AddContent(getFixture("fragment_header2.html"), 0)
+	cm.AddContent(getFixtureWithName(LayoutFragmentName, "simple/layout1.html"), 0)
+	cm.AddContent(getFixture("simple/fragment_header.html"), 0)
+	cm.AddContent(getFixture("simple/fragment_content.html"), 1)
+	cm.AddContent(getFixture("simple/fragment_header2.html"), 0)
 
 	html, err := cm.GetHtml()
 	a.NoError(err)
@@ -301,143 +301,38 @@ func Test_MergeScriptTags(t *testing.T) {
 	a := assert.New(t)
 
 	cm := NewContentMerge(nil)
-	cm.AddContent(getFixtureWithName(LayoutFragmentName, "layout_scripts.html"), 0)
-	cm.AddContent(getFixture("fragment_scripts_header.html"), 0)
-	cm.AddContent(getFixture("fragment_scripts_footer.html"), 0)
-	cm.AddContent(getFixture("fragment_scripts_content.html"), 0)
+	cm.AddContent(getFixtureWithName(LayoutFragmentName, "with_scripts/layout_scripts.html"), 0)
+	cm.AddContent(getFixture("with_scripts/fragment_scripts_header.html"), 0)
+	cm.AddContent(getFixture("with_scripts/fragment_scripts_footer.html"), 1)
+	cm.AddContent(getFixture("with_scripts/fragment_scripts_content.html"), 0)
+
+	expected, err := ioutil.ReadFile("testdata/with_scripts/expected_scripts.html")
+	sExpected := trim(string(expected))
+	a.NoError(err)
 
 	html, err := cm.GetHtml()
 	a.NoError(err)
 	sHtml := trim(string(html))
-	a.Contains(sHtml, "TEST-CONTENT")
-	a.Contains(sHtml, "TEST-HEADER")
-	a.Contains(sHtml, "TEST-FOOTER")
-
-	// assert that inline scritps are left at their origin position
-	a.Contains(sHtml, `
-<!-- header start -->
-<div>
-TEST-HEADER
-<script charset="utf-8">
-// inline script - header.body#header
-</script>
-</div>
-<!-- header end -->
-<script charset="utf-8">
-// inline script - layout.body
-</script>
-<!-- content start -->
-<div>
-TEST-CONTENT
-</div>
-<script charset="utf-8">
-// inline script - content.body#content
-</script>
-<hr>
-<!-- content end -->
-<!-- footer start -->
-<div>
-TEST-FOOTER
-<script charset="utf-8">
-// inline script - footer.body#footer
-</script>
-</div>
-<!-- footer end -->`)
-
-	// assert that extern scripts are collected and written in the correct order
-	// FIXME: Is this order correct? first all head-scripts then body then uic-tail?
-	a.Contains(sHtml, `
-<!-- footer end -->
-<script src="layout/head.js" charset="utf-8"></script>
-<script src="header/head.js" charset="utf-8"></script>
-<script src="footer/head.js" charset="utf-8"></script>
-<script src="content/head.js" charset="utf-8"></script>
-<script src="layout/body.js" charset="utf-8"></script>
-<script src="header/body/header.js" charset="utf-8"></script>
-<script src="content/body/content.js" charset="utf-8"></script>
-<script src="footer/body/footer.js" charset="utf-8"></script>
-<script src="footer/uic-tail.js" charset="utf-8"></script>
-<script src="content/body/content/uic-tail.js" charset="utf-8"></script>
-<!-- uic-tail content -->
-<script charset="utf-8">
-// inline script - content.body#uic-tail - 1
-</script>
-<script charset="utf-8">
-// inline script - content.body#uic-tail - 2
-</script>
-</body>
-</html>`)
+	a.Equal(sHtml, sExpected)
 }
 
 func Test_MergeScriptTagsWithPrios(t *testing.T) {
 	a := assert.New(t)
 
 	cm := NewContentMerge(nil)
-	cm.AddContent(getFixtureWithName(LayoutFragmentName, "layout_scripts.html"), 0)
-	cm.AddContent(getFixture("fragment_scripts_header.html"), 0)
-	cm.AddContent(getFixture("fragment_scripts_footer.html"), 1)
-	cm.AddContent(getFixture("fragment_scripts_content.html"), 0)
+	cm.AddContent(getFixtureWithName(LayoutFragmentName, "with_scripts/layout_scripts.html"), 0)
+	cm.AddContent(getFixture("with_scripts/fragment_scripts_header.html"), 0)
+	cm.AddContent(getFixture("with_scripts/fragment_scripts_footer.html"), 1)
+	cm.AddContent(getFixture("with_scripts/fragment_scripts_content.html"), 0)
+
+	expected, err := ioutil.ReadFile("testdata/with_scripts/expected_scripts.html")
+	sExpected := trim(string(expected))
+	a.NoError(err)
 
 	html, err := cm.GetHtml()
 	a.NoError(err)
 	sHtml := trim(string(html))
-	a.Contains(sHtml, "TEST-CONTENT")
-	a.Contains(sHtml, "TEST-HEADER")
-
-	// assert that inline scritps are left at their origin position
-	a.Contains(sHtml, `
-<!-- header start -->
-<div>
-TEST-HEADER
-<script charset="utf-8">
-// inline script - header.body#header
-</script>
-</div>
-<!-- header end -->
-<script charset="utf-8">
-// inline script - layout.body
-</script>
-<!-- content start -->
-<div>
-TEST-CONTENT
-</div>
-<script charset="utf-8">
-// inline script - content.body#content
-</script>
-<hr>
-<!-- content end -->
-<!-- footer start -->
-<div>
-TEST-FOOTER
-<script charset="utf-8">
-// inline script - footer.body#footer
-</script>
-</div>
-<!-- footer end -->`)
-
-	// assert that extern scripts are collected and written in the correct order
-	// FIXME: Is this order correct? first all head-scripts then body then uic-tail?
-	a.Contains(sHtml, `
-<!-- footer end -->
-<script src="layout/head.js" charset="utf-8"></script>
-<script src="header/head.js" charset="utf-8"></script>
-<script src="footer/head.js" charset="utf-8"></script>
-<script src="content/head.js" charset="utf-8"></script>
-<script src="layout/body.js" charset="utf-8"></script>
-<script src="header/body/header.js" charset="utf-8"></script>
-<script src="content/body/content.js" charset="utf-8"></script>
-<script src="footer/body/footer.js" charset="utf-8"></script>
-<script src="footer/uic-tail.js" charset="utf-8"></script>
-<script src="content/body/content/uic-tail.js" charset="utf-8"></script>
-<!-- uic-tail content -->
-<script charset="utf-8">
-// inline script - content.body#uic-tail - 1
-</script>
-<script charset="utf-8">
-// inline script - content.body#uic-tail - 2
-</script>
-</body>
-</html>`)
+	a.Equal(sHtml, sExpected)
 }
 
 func trim(html string) string {

@@ -12,7 +12,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-type ScriptFragment *struct {
+type ScriptElement *struct {
 	Attrs []html.Attribute
 	Text  []byte
 }
@@ -26,9 +26,9 @@ type Fragment interface {
 	// Return the content of this fragment
 	Content() string
 
-	// Return the list of link and script tags used in this fragment
+	// Return the list of link tags and script elements used in this fragment
 	LinkTags() [][]html.Attribute
-	ScriptTags() []ScriptFragment
+	ScriptElements() []ScriptElement
 }
 
 type ContentLoader interface {
@@ -138,5 +138,6 @@ type Cache interface {
 }
 
 type DeduplicationStrategy interface {
-	Deduplicate(stylesheetAttrs [][]html.Attribute) [][]html.Attribute
+	Deduplicate(linkTags [][]html.Attribute) [][]html.Attribute
+	DeduplicateElements(scriptElements []ScriptElement) []ScriptElement
 }

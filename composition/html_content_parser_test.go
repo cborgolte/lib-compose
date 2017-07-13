@@ -288,6 +288,73 @@ func Test_HtmlContentParser_LoadEmptyContent(t *testing.T) {
 	a.Nil(c.Tail())
 }
 
+func Test_HtmlContentParser_ParseBrokenScript(t *testing.T) {
+	a := assert.New(t)
+
+	in := strings.NewReader(`<html>
+  <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script> // this script is not closed correctly </ipt>
+  </head>
+  <body>
+  <h1>Crash!</h1>
+  </body>
+</html>
+`)
+	c := NewMemoryContent()
+	parser := &HtmlContentParser{}
+	err := parser.Parse(c, in)
+	a.Error(err)
+	a.Contains(err.Error(), "Tag not properly ended. Expected </script>. Error was: EOF")
+	a.Equal(0, len(c.Body()))
+	a.Equal(0, len(c.Meta()))
+	a.Equal(0, len(c.RequiredContent()))
+	a.Nil(c.Head())
+	a.Nil(c.Tail())
+}
+
+func Test_HtmlContentParser_ParseBrokenScript2(t *testing.T) {
+	a := assert.New(t)
+
+	in := strings.NewReader(`<html>
+  <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>`)
+	c := NewMemoryContent()
+	parser := &HtmlContentParser{}
+	err := parser.Parse(c, in)
+	a.Error(err)
+	a.Contains(err.Error(), "expected text node for inline script, but found Error")
+	a.Equal(0, len(c.Body()))
+	a.Equal(0, len(c.Meta()))
+	a.Equal(0, len(c.RequiredContent()))
+	a.Nil(c.Head())
+	a.Nil(c.Tail())
+}
+
+func Test_HtmlContentParser_ParseEmptyScript(t *testing.T) {
+	a := assert.New(t)
+
+	in := strings.NewReader(`<html>
+  <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script></script> <!-- dont treat it as an error -->
+  </head>
+  <body>
+  </body>
+</html>
+`)
+	c := NewMemoryContent()
+	parser := &HtmlContentParser{}
+	err := parser.Parse(c, in)
+	a.NoError(err)
+	a.Equal(0, len(c.Body()))
+	a.Equal(0, len(c.Meta()))
+	a.Equal(0, len(c.RequiredContent()))
+	a.NotNil(c.Head()) // Head contains the (empty) script
+	a.Nil(c.Tail())
+}
+
 func Test_HtmlContentParser_parseHead_withMultipleMetaTags_and_Titles_and_Canonicals(t *testing.T) {
 	a := assert.New(t)
 
@@ -392,7 +459,7 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 		joinAttrs(c.Body()[""].LinkTags()[0]))
 
 	// test script tags
-	scriptTags := c.Head().ScriptTags()
+	scriptTags := c.Head().ScriptElements()
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
 		joinAttrs(scriptTags[0].Attrs))
 	a.Equal(`var test="abc";`, string(scriptTags[1].Text))
@@ -400,7 +467,7 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 		joinAttrs(scriptTags[2].Attrs))
 	a.Equal(3, len(scriptTags))
 
-	scriptTags = c.Body()[""].ScriptTags()
+	scriptTags = c.Body()[""].ScriptElements()
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
 		joinAttrs(scriptTags[0].Attrs))
 	a.Equal(`var test="abc";`, string(scriptTags[1].Text))
@@ -408,7 +475,7 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 		joinAttrs(scriptTags[2].Attrs))
 	a.Equal(3, len(scriptTags))
 
-	scriptTags = c.Body()["content"].ScriptTags()
+	scriptTags = c.Body()["content"].ScriptElements()
 	a.Equal("src=\"/rebrush/assets/typo/javascripts/picturefill-f350acdff4.min.js\" async=\"\"",
 		joinAttrs(scriptTags[0].Attrs))
 	a.Equal(`var test="abc";`, string(scriptTags[1].Text))
@@ -1137,7 +1204,6 @@ func Test_getTag(t *testing.T) {
 		_, typ := getTag(tag, attrs)
 		a.Equal(v.tagType, typ)
 	}
-
 }
 
 func removeTabsAndNewLines(stringToProcess string) string {

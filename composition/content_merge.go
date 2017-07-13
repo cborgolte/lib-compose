@@ -39,11 +39,14 @@ type ContentMerge struct {
 
 	// all linkTags contained in used fragments
 	linkTags [][]html.Attribute
-	// all script tags contained in used fragments
-	scriptTags []ScriptFragment
+	// all script elements contained in used fragments
+	scriptElements []ScriptElement
 
-	// strategy to prevent duplicacte <link rel="stylesheet"> tags
-	linkTagDeduplicationStrategy DeduplicationStrategy
+	// strategy to prevent duplicacte <link> tags
+	linksDeduplicationStrategy DeduplicationStrategy
+
+	// strategy to prevent duplicacte <script> tags
+	scriptsDeduplicationStrategy DeduplicationStrategy
 }
 
 // NewContentMerge creates a new buffered ContentMerge
@@ -61,25 +64,31 @@ func NewContentMerge(metaJSON map[string]interface{}) *ContentMerge {
 }
 
 func (cntx *ContentMerge) SetDeduplicationStrategy(strategy DeduplicationStrategy) {
-	cntx.linkTagDeduplicationStrategy = strategy
+	cntx.linksDeduplicationStrategy = strategy
 }
 
 // TODO: Rename method
-func (cntx *ContentMerge) collectStylesheets(f Fragment) {
+func (cntx *ContentMerge) collectLinksAndScripts(f Fragment) {
 	cntx.linkTags = append(cntx.linkTags, f.LinkTags()...)
-	cntx.scriptTags = append(cntx.scriptTags, f.ScriptTags()...)
+	cntx.scriptElements = append(cntx.scriptElements, f.ScriptElements()...)
 }
 
-func (cntx *ContentMerge) deduplicateLinkTags() {
-	if cntx.linkTagDeduplicationStrategy != nil {
-		cntx.linkTags = cntx.linkTagDeduplicationStrategy.Deduplicate(cntx.linkTags)
+func (cntx *ContentMerge) deduplicateLinks() {
+	if cntx.linksDeduplicationStrategy != nil {
+		cntx.linkTags = cntx.linksDeduplicationStrategy.Deduplicate(cntx.linkTags)
 	}
 }
 
-func (cntx *ContentMerge) writeLinkTags(w io.Writer) {
+func (cntx *ContentMerge) deduplicateScripts() {
+	if cntx.scriptsDeduplicationStrategy != nil {
+		cntx.scriptElements = cntx.scriptsDeduplicationStrategy.DeduplicateElements(cntx.scriptElements)
+	}
+}
+
+func (cntx *ContentMerge) writeLinks(w io.Writer) {
 
 	// first make sure, linkTags are deduplicated
-	cntx.deduplicateLinkTags()
+	cntx.deduplicateLinks()
 
 	for _, attrs := range cntx.linkTags {
 		joinedAttr := joinAttrs(attrs)
@@ -88,15 +97,19 @@ func (cntx *ContentMerge) writeLinkTags(w io.Writer) {
 	}
 }
 
-func (cntx *ContentMerge) writeScriptTags(w io.Writer) {
+func (cntx *ContentMerge) writeScripts(w io.Writer) {
 
-	// first make sure, linkTags are deduplicated
-	// cntx.deduplicateLinkTags()
+	// TODO: first make sure, script elements are deduplicated
+	cntx.deduplicateScripts()
 
-	for _, scriptData := range cntx.scriptTags {
-		joinedAttr := joinAttrs(scriptData.Attrs)
-		stylesheet := fmt.Sprintf("\n      <script %s>%s</script>", joinedAttr, string(scriptData.Text))
-		io.WriteString(w, stylesheet)
+	for _, scriptData := range cntx.scriptElements {
+		var tagTmpl string
+		if scriptData.Attrs != nil {
+			tagTmpl = fmt.Sprintf("\n      <script %s>%%s</script>", joinAttrs(scriptData.Attrs))
+		} else {
+			tagTmpl = "\n      <script>%s</script>"
+		}
+		io.WriteString(w, fmt.Sprintf(tagTmpl, string(scriptData.Text)))
 	}
 }
 
@@ -107,7 +120,7 @@ func generateExecutionFunction(cntx *ContentMerge, w io.Writer) (executeFragment
 			missingFragmentString := generateMissingFragmentString(cntx.Body, fragmentName)
 			return errors.New(missingFragmentString)
 		}
-		cntx.collectStylesheets(f)
+		cntx.collectLinksAndScripts(f)
 		return f.Execute(w, cntx.MetaJSON, executeFragment)
 	}
 	return executeFragment
@@ -124,7 +137,7 @@ func (cntx *ContentMerge) GetHtml() ([]byte, error) {
 	io.WriteString(header, "<!DOCTYPE html>\n<html>\n  <head>\n    ")
 
 	for _, f := range cntx.Head {
-		cntx.collectStylesheets(f)
+		cntx.collectLinksAndScripts(f)
 		executeFragment := generateExecutionFunction(cntx, header)
 		if err := f.Execute(header, cntx.MetaJSON, executeFragment); err != nil {
 			return nil, err
@@ -155,29 +168,29 @@ func (cntx *ContentMerge) GetHtml() ([]byte, error) {
 		return nil, err
 	}
 
-	// write inline scripts etc. to own buffer
-	tailInline := bytes.NewBuffer(make([]byte, 0, DefaultBufferSize))
+	// write content of uic-tail fragments to own buffer
+	tailContent := bytes.NewBuffer(make([]byte, 0, DefaultBufferSize))
 	for _, f := range cntx.Tail {
-		cntx.collectStylesheets(f)
-		if err := f.Execute(tailInline, cntx.MetaJSON, executeFragment); err != nil {
+		cntx.collectLinksAndScripts(f)
+		if err := f.Execute(tailContent, cntx.MetaJSON, executeFragment); err != nil {
 			return nil, err
 		}
 	}
 
-	io.WriteString(tailInline, "\n  </body>\n</html>\n")
+	io.WriteString(tailContent, "\n  </body>\n</html>\n")
 
 	// write the collected linkTags to the header and close it
-	cntx.writeLinkTags(header)
+	cntx.writeLinks(header)
 	io.WriteString(header, "\n  </head>")
 
-	// write the collected script tags in own buffer
+	// write the collected script elements to own buffer
 	tailScripts := bytes.NewBuffer(make([]byte, 0, DefaultBufferSize))
-	cntx.writeScriptTags(tailScripts)
+	cntx.writeScripts(tailScripts)
 
-	// return concatenated header, tails and body
+	// return concatenated header, body, scripts, tail
 	html := append(header.Bytes(),
 		append(body.Bytes(),
-			append(tailScripts.Bytes(), tailInline.Bytes()...)...)...)
+			append(tailScripts.Bytes(), tailContent.Bytes()...)...)...)
 	return html, nil
 }
 

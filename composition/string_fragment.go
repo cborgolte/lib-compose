@@ -10,7 +10,7 @@ import (
 type StringFragment struct {
 	content    string
 	linkTags   [][]html.Attribute
-	scriptTags []ScriptFragment
+	scriptTags []ScriptElement
 }
 
 func NewStringFragment(c string) *StringFragment {
@@ -33,7 +33,7 @@ func (f *StringFragment) LinkTags() [][]html.Attribute {
 	return f.linkTags
 }
 
-func (f *StringFragment) ScriptTags() []ScriptFragment {
+func (f *StringFragment) ScriptElements() []ScriptElement {
 	return f.scriptTags
 }
 
@@ -41,7 +41,7 @@ func (f *StringFragment) AddLinkTags(linkTags [][]html.Attribute) {
 	f.linkTags = append(f.linkTags, linkTags...)
 }
 
-func (f *StringFragment) AddScriptTags(scriptTags []ScriptFragment) {
+func (f *StringFragment) AddScriptTags(scriptTags []ScriptElement) {
 	f.scriptTags = append(f.scriptTags, scriptTags...)
 }
 

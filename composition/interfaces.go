@@ -12,11 +12,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-type ScriptElement *struct {
-	Attrs []html.Attribute
-	Text  []byte
-}
-
 type Fragment interface {
 	Execute(w io.Writer, data map[string]interface{}, executeNestedFragment func(nestedFragmentName string) error) error
 

@@ -277,7 +277,7 @@ func Test_HtmlContentParser_LoadEmptyContent(t *testing.T) {
 </html>
 `)
 	c := NewMemoryContent()
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	err := parser.Parse(c, in)
 	a.NoError(err)
 
@@ -302,7 +302,7 @@ func Test_HtmlContentParser_ParseBrokenScript(t *testing.T) {
 </html>
 `)
 	c := NewMemoryContent()
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	err := parser.Parse(c, in)
 	a.Error(err)
 	a.Contains(err.Error(), "Tag not properly ended. Expected </script>. Error was: EOF")
@@ -321,7 +321,7 @@ func Test_HtmlContentParser_ParseBrokenScript2(t *testing.T) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>`)
 	c := NewMemoryContent()
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	err := parser.Parse(c, in)
 	a.Error(err)
 	a.Contains(err.Error(), "expected text node for inline script, but found Error")
@@ -345,7 +345,7 @@ func Test_HtmlContentParser_ParseEmptyScript(t *testing.T) {
 </html>
 `)
 	c := NewMemoryContent()
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	err := parser.Parse(c, in)
 	a.NoError(err)
 	a.Equal(0, len(c.Body()))
@@ -358,7 +358,7 @@ func Test_HtmlContentParser_ParseEmptyScript(t *testing.T) {
 func Test_HtmlContentParser_parseHead_withMultipleMetaTags_and_Titles_and_Canonicals(t *testing.T) {
 	a := assert.New(t)
 
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	z := html.NewTokenizer(bytes.NewBufferString(productUiGeneratedHtml))
 
 	z.Next()
@@ -371,7 +371,7 @@ func Test_HtmlContentParser_parseHead_withMultipleMetaTags_and_Titles_and_Canoni
 func Test_HtmlContentParser_parseHead(t *testing.T) {
 	a := assert.New(t)
 
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	z := html.NewTokenizer(bytes.NewBufferString(`<head>
   <div uic-remove>
     <script>
@@ -411,7 +411,7 @@ func Test_HtmlContentParser_parseHead(t *testing.T) {
 func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.T) {
 	a := assert.New(t)
 
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	z := bytes.NewBufferString(`<head>
 	<!-- will be found by the HeaderParser -->
 	<link rel="stylesheet" href="/navigationservice/stylesheets/main-93174ed18d.css">
@@ -493,7 +493,7 @@ func Test_HtmlContentParser_collectStylesheets_bodyAsDefaultFragment(t *testing.
 func Test_HtmlContentParser_collectStylesheets_OverrideDefault(t *testing.T) {
 	a := assert.New(t)
 
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	z := bytes.NewBufferString(`<head>
 	<!-- will be found by the HeaderParser -->
 	<link rel="stylesheet" href="/navigationservice/stylesheets/main-93174ed18d.css">
@@ -529,7 +529,7 @@ func Test_HtmlContentParser_collectStylesheets_OverrideDefault(t *testing.T) {
 func Test_HtmlContentParser_parseBody(t *testing.T) {
 	a := assert.New(t)
 
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	z := html.NewTokenizer(bytes.NewBufferString(`<body some="attribute">
     <h1>Default Fragment Content</h1><br>
     <uic-include src="example.com/xyz" required="true" param-foo="bar" param-bazz="buzz"/>
@@ -581,7 +581,7 @@ func Test_HtmlContentParser_parseBody(t *testing.T) {
 func Test_HtmlContentParser_fetchDependencies(t *testing.T) {
 	a := assert.New(t)
 
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	z := html.NewTokenizer(bytes.NewBufferString(`<body>
            foo
            <uic-fetch src="example.com/foo" timeout="42000" required="true" name="foo"/>
@@ -629,7 +629,7 @@ func Test_HtmlContentParser_fetchAndInclude_ErrorCases(t *testing.T) {
 
 	for i, test := range testCases {
 		t.Run(fmt.Sprintf("test #%v", i), func(t *testing.T) {
-			parser := &HtmlContentParser{}
+			parser := NewHtmlContentParser(true, true)
 			z := html.NewTokenizer(bytes.NewBufferString(
 				"<body>" + test + "</body>",
 			))
@@ -643,7 +643,7 @@ func Test_HtmlContentParser_fetchAndInclude_ErrorCases(t *testing.T) {
 func Test_HtmlContentParser_parseBody_OnlyDefaultFragment(t *testing.T) {
 	a := assert.New(t)
 
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	z := html.NewTokenizer(bytes.NewBufferString(`<body>
     <h1>Default Fragment Content</h1><br>
     <uic-include src="example.com/foo#content" required="true"/>
@@ -661,7 +661,7 @@ func Test_HtmlContentParser_parseBody_OnlyDefaultFragment(t *testing.T) {
 func Test_HtmlContentParser_parseBody_DefaultFragmentOverwritten(t *testing.T) {
 	a := assert.New(t)
 
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	z := html.NewTokenizer(bytes.NewBufferString(`<body>
     <h1>Default Fragment Content</h1><br>
     <uic-fragment>
@@ -685,7 +685,7 @@ func Test_HtmlContentParser_parseBody_DefaultFragmentOverwritten(t *testing.T) {
 func Test_HtmlContentParser_parseHead_JsonError(t *testing.T) {
 	a := assert.New(t)
 
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	z := html.NewTokenizer(bytes.NewBufferString(`
 <script type="text/uic-meta">
       {
@@ -700,6 +700,7 @@ func Test_HtmlContentParser_parseHead_JsonError(t *testing.T) {
 }
 
 func Test_HtmlContentParser_parseFragment(t *testing.T) {
+	parser := NewHtmlContentParser(true, true)
 	a := assert.New(t)
 
 	z := html.NewTokenizer(bytes.NewBufferString(`<uic-fragment name="content">
@@ -717,7 +718,7 @@ func Test_HtmlContentParser_parseFragment(t *testing.T) {
     </uic-fragment><testend>`))
 
 	z.Next() // At <uic-fragment name ..
-	f, _, err := parseFragment(z)
+	f, _, err := parser.parseFragment(z)
 	a.NoError(err)
 
 	expected := `Bli Bla blub
@@ -745,7 +746,7 @@ func Test_HtmlContentParser_parseFragment_EntityAttribute(t *testing.T) {
 		testHtml + `<uic-fragment name="content">` + testHtml + `</uic-fragment></body></html>`)
 
 	c := NewMemoryContent()
-	parser := &HtmlContentParser{}
+	parser := NewHtmlContentParser(true, true)
 	err := parser.Parse(c, in)
 	a.NoError(err)
 

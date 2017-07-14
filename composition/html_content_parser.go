@@ -12,6 +12,15 @@ import (
 	"golang.org/x/net/html"
 )
 
+type HtmlContentParser struct {
+	collectLinks   bool
+	collectScripts bool
+}
+
+func NewHtmlContentParser(collectLinks bool, collectScripts bool) *HtmlContentParser {
+	return &HtmlContentParser{collectLinks: collectLinks, collectScripts: collectScripts}
+}
+
 const (
 	UicRemove       = "uic-remove"
 	UicInclude      = "uic-include"
@@ -50,9 +59,6 @@ func getTag(tag []byte, attrs []html.Attribute) (tagAttrs []html.Attribute, tagT
 	return nil, UNKNOWN
 }
 
-type HtmlContentParser struct {
-}
-
 func (parser *HtmlContentParser) Parse(c *MemoryContent, in io.Reader) error {
 	z := html.NewTokenizer(in)
 	for {
@@ -79,28 +85,21 @@ func (parser *HtmlContentParser) Parse(c *MemoryContent, in io.Reader) error {
 	}
 }
 
-func newScriptElement(attr []html.Attribute, text []byte) ScriptElement {
-	return &struct {
-		Attrs []html.Attribute
-		Text  []byte
-	}{attr, text}
-}
-
-func collectLinksAndScripts(tag []byte, attrs []html.Attribute, linkTags *[][]html.Attribute, scriptTags *[]ScriptElement, z *html.Tokenizer, tt html.TokenType) (skip bool, err error) {
+func (parser *HtmlContentParser) collectLinksAndScripts(tag []byte, attrs []html.Attribute, linkTags *[][]html.Attribute, scriptTags *[]ScriptElement, z *html.Tokenizer, tt html.TokenType) (skip bool, err error) {
 
 	skip = false
 	tagAttrs, tagType := getTag(tag, attrs)
-	if tagType == LINK {
+	if tagType == UNKNOWN {
+		// do nothing
+	} else if tagType == LINK && parser.collectLinks {
 		*linkTags = append(*linkTags, tagAttrs)
 		skip = true
-	}
-	if tagType == SCRIPT {
+	} else if tagType == SCRIPT && parser.collectScripts {
 		*scriptTags = append(*scriptTags, newScriptElement(tagAttrs, nil))
 		if skipSubtree(z, tt, string(tag), attrs) {
 			skip = true
 		}
-	}
-	if tagType == SCRIPT_INLINE {
+	} else if tagType == SCRIPT_INLINE && parser.collectScripts {
 		txt, err := parseInlineScript(z)
 		if err != nil {
 			return false, err
@@ -162,7 +161,7 @@ forloop:
 			continue
 		}
 
-		skip, err := collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
+		skip, err := parser.collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
 		if err != nil {
 			return err
 		}
@@ -209,7 +208,7 @@ forloop:
 		switch {
 		case tt == html.StartTagToken || tt == html.SelfClosingTagToken:
 			if string(tag) == UicFragment {
-				if f, deps, err := parseFragment(z); err != nil {
+				if f, deps, err := parser.parseFragment(z); err != nil {
 					return err
 				} else {
 					c.body[getFragmentName(attrs)] = f
@@ -220,7 +219,7 @@ forloop:
 				continue
 			}
 			if string(tag) == UicTail {
-				if f, deps, err := parseFragment(z); err != nil {
+				if f, deps, err := parser.parseFragment(z); err != nil {
 					return err
 				} else {
 					c.tail = f
@@ -251,7 +250,7 @@ forloop:
 				}
 			}
 
-			skip, err := collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
+			skip, err := parser.collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
 			if err != nil {
 				return err
 			}
@@ -276,7 +275,7 @@ forloop:
 	return nil
 }
 
-func parseFragment(z *html.Tokenizer) (f Fragment, dependencies map[string]Params, err error) {
+func (parser *HtmlContentParser) parseFragment(z *html.Tokenizer) (f Fragment, dependencies map[string]Params, err error) {
 	var linkTags [][]html.Attribute
 	var scriptTags []ScriptElement
 	attrs := make([]html.Attribute, 0, 10)
@@ -308,7 +307,7 @@ forloop:
 				}
 			}
 
-			skip, err := collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
+			skip, err := parser.collectLinksAndScripts(tag, attrs, &linkTags, &scriptTags, z, tt)
 			if err != nil {
 				return nil, nil, err
 			}

@@ -27,15 +27,7 @@ func (strategy *SimpleDeduplicationStrategy) DeduplicateElements(scriptElements 
 	knownSrc := map[string]struct{}{}
 	for _, scriptElement := range scriptElements {
 
-		/*
-		// inline script w/o attributes
-		if scriptElement.Attrs == nil && scriptElement.Text != nil {
-			result = append(result, scriptElement)
-			continue
-		}
-		*/
-
-		// inline script with attributes (excluding the src attribute)
+		// inline script, that is: it has no src attribute
 		srcAttr, attrExists := getAttr(scriptElement.Attrs, "src")
 		if !attrExists {
 			if scriptElement.Text != nil {

@@ -67,7 +67,6 @@ func (cntx *ContentMerge) SetDeduplicationStrategy(strategy DeduplicationStrateg
 	cntx.linksDeduplicationStrategy = strategy
 }
 
-// TODO: Rename method
 func (cntx *ContentMerge) collectLinksAndScripts(f Fragment) {
 	cntx.linkTags = append(cntx.linkTags, f.LinkTags()...)
 	cntx.scriptElements = append(cntx.scriptElements, f.ScriptElements()...)
